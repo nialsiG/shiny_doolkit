@@ -10,7 +10,7 @@
 
 # Load libraries----
 RGL_USE_NULL <- TRUE
-# options(rgl.useNULL = RGL_USE_NULL)
+options(rgl.useNULL = RGL_USE_NULL)
 options(htmlwidgets.TOJSON_ARGS = list(na = 'string'))
 library(doolkit)
 library(rgl)
@@ -21,108 +21,7 @@ library(DT)
 library(shinyjs)
 
 
-# Load functions----
-colrange <- function(x) {
-  if (x == 1) result <- c("white", "black")
-  if (x == 2) result <- colorspace::desaturate(c("royalblue", "white", "red"), amount = 0.3)
-  if (x == 3) result <- colorspace::desaturate(c("royalblue", "lightskyblue", rep("olivedrab3", 3), "yellow1", "orange", "red"), amount = 0.3)
-  if (x == 4) result <- colorspace::desaturate(c("lightgreen","goldenrod1","yellow1","white","white","lightskyblue","dodgerblue4","royalblue"), amount = 0.3)
-  if (x == 5) result <- colorspace::desaturate(c("firebrick4","red","orangered","orange","yellow1","olivedrab3","lightseagreen","royalblue","royalblue4","royalblue","lightseagreen","olivedrab3","yellow1","orange","orangered","red","firebrick4"), amount = 0.3)
-  if (x == 6) result <- colorspace::desaturate(c("blue","green","yellow","orange","red"), amount = 0.3)
-  if (x == 7) result <- colorspace::desaturate(c("dodgerblue4","lightskyblue","sienna4","yellow1","red3","plum1","darkgreen","olivedrab3"), amount = 0.1)
-  if (x == 8) result <- colorspace::desaturate(c("royalblue4","royalblue","lightseagreen","olivedrab3","yellow1","orange","orangered","red","firebrick4"), amount = 0.3)
-  return(result)
-}
-
-compute.polygonal <- function(mesh, x) {
-  if (x == 1) result <- Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle
-  if (x == 2) result <- doolkit::elev(mesh, origin = FALSE)
-  if (x == 3) result <- doolkit::inclin(mesh)
-  if (x == 4) result <- doolkit::orient(mesh)
-  if (x == 5) result <- doolkit::slope(mesh)
-  if (x == 6) result <- doolkit::angularity(mesh, ratio = FALSE)
-  if (x == 7) result <- doolkit::angularity(mesh, ratio = TRUE)
-  if (x == 8) result <- Rvcg::vcgCurve(mesh)$meanitmax
-  if (x == 9) result <- Rvcg::vcgCurve(mesh)$gaussitmax
-  if (x == 10) result <- Rvcg::vcgCurve(mesh)$K1
-  if (x == 11) result <- Rvcg::vcgCurve(mesh)$K2
-  if (x == 12) result <- doolkit::arc(mesh, range = c(-20, 20))
-  if (x == 13) result <- doolkit::dne(mesh)
-  return(result)
-}
-
-dta.legend <- function(x) {
-  if (x == 1) result <- "3D Area"
-  if (x == 2) result <- "Elevation"
-  if (x == 3) result <- "Inclination"
-  if (x == 4) result <- "Orientation"
-  if (x == 5) result <- "Slope"
-  if (x == 6) result <- "Angularity"
-  if (x == 7) result <- "Angularity (as ratio)"
-  if (x == 8) result <- "Mean curvature"
-  if (x == 9) result <- "Gauss curvature"
-  if (x == 10) result <- "Principal curvature K1"
-  if (x == 11) result <- "Principal curvature K2"
-  if (x == 12) result <- "Area-Relative Curvature"
-  if (x == 13) result <- "Dirichlet Normal Energy"
-  return(result)
-}
-
-minrange <- function(x) {
-  if (x == 1) result <- NULL
-  if (x == 2) result <- NULL
-  if (x == 3) result <- NULL
-  if (x == 4) result <- NULL
-  if (x == 5) result <- 0
-  if (x == 6) result <- NULL
-  if (x == 7) result <- NULL
-  if (x == 8) result <- NULL
-  if (x == 9) result <- NULL
-  if (x == 10) result <- NULL
-  if (x == 11) result <- NULL
-  if (x == 12) result <- -20
-  if (x == 13) result <- NULL
-  return(result)
-}
-
-maxrange <- function(x) {
-  if (x == 1) result <- NULL
-  if (x == 2) result <- NULL
-  if (x == 3) result <- NULL
-  if (x == 4) result <- NULL
-  if (x == 5) result <- 90
-  if (x == 6) result <- NULL
-  if (x == 7) result <- NULL
-  if (x == 8) result <- NULL
-  if (x == 9) result <- NULL
-  if (x == 10) result <- NULL
-  if (x == 11) result <- NULL
-  if (x == 12) result <- 20
-  if (x == 13) result <- NULL
-  return(result)
-}
-
-legtype <- function(x) {
-  if (x == 1) result = "stack"
-  if (x == 2) result = "pie"
-  if (x == 3) result = "log"
-  return(result)
-}
-
-nametag <- function(name, display) {
-  result <- paste("")
-  if (display) {
-    name <- basename(name)
-    result <- paste(name)
-  }
-  return(result)
-}
-
-
-
-
-
-# Define UI for application----
+# UI----
 ui <- dashboardPage(
   # CSS style
   includeCSS("doolkit.css"),
@@ -327,72 +226,35 @@ ui <- dashboardPage(
           icon = icon("object-group"),
           menuItem(
             "Options...",
-            icon = icon("gears"),
-            # ...patch size for complexity
-            sliderInput(
-              inputId = "patch_size_select",
-              label = "Orientation patch size",
-              min = 3,
-              max = 100,
-              value = 3
-            )
-            # ...
+            icon = icon("gears")
+            #TODO add options here
           ),
+          # ......variables----
           fluidRow(
             column(
               4,
               checkboxGroupInput(
                 inputId = "single_table_select_relief",
-                label = "Relief",
+                label = "Select variables",
                 choices = list(
-                  "3D_area",
+                  "3D area",
+                  "Elevation",
                   "Inclination",
+                  "Orientation",
                   "Slope",
-                  "RFI",
-                  "LRFI",
-                  "Gamma"),
-                selected = c("Slope", "RFI"))
-            ),
-            column(
-              4,
-              checkboxGroupInput(
-                inputId = "single_table_select_sharpness",
-                label = "Sharpness",
-                choices = list(
-                  "Angularity",
-                  "_ratio",
-                  "DNE",
-                  "ARC",
-                  "_positive",
-                  "_negative"),
-                selected = "DNE")
+                  "Angularity (in degree)",
+                  "Angularity (as ratio)",
+                  "Curvature (mean)",
+                  "Curvature (Gaussian)",
+                  "Curvature (K1)",
+                  "Curvature (K2)",
+                  "Curvature (ARC)",
+                  "Curvature (DNE)"),
+                selected = c("Slope"))
             )
           ),
-
-          fluidRow(
-            column(
-              4,
-              checkboxGroupInput(
-                inputId = "table_select_shape",
-                label = "Shape",
-                choices = list(
-                  "Form_factor",
-                  "Elongation",
-                  "Lemniscate"),
-                selected = NULL)
-            ),
-            column(
-              4,
-              checkboxGroupInput(
-                inputId = "table_select_complexity",
-                label = "Complexity",
-                choices = list(
-                  "OPCR",
-                  "_4bins",
-                  "_2bins"),
-                selected = "OPCR")
-            )
-          )
+          # ......start button----
+          actionButton("batch_single_event", "Start batch analysis")
         )
       ),
 
@@ -429,7 +291,7 @@ ui <- dashboardPage(
       menuItem(
         "Multi-surface",
         icon = icon("cubes"),
-        # ...import
+        # ...import----
         menuItem(
           "Files",
           icon = icon("file-import"),
@@ -441,10 +303,11 @@ ui <- dashboardPage(
             accept = c("text/plain", ".stl", ".ply")
           )
         ),
-        # ...
+        # ...batch analysis----
         menuItem(
           "Batch analysis",
           icon = icon("object-group"),
+          # ......options----
           menuItem(
             "Options...",
             icon = icon("gears"),
@@ -456,8 +319,9 @@ ui <- dashboardPage(
               max = 100,
               value = 3
             )
-            # ...
+            #TODO add options here
           ),
+          # ......variables----
           fluidRow(
             column(
               4,
@@ -513,41 +377,31 @@ ui <- dashboardPage(
                 selected = "OPCR")
             )
           ),
+          # ......start button----
           actionButton("batch_multi_event", "Start batch analysis")
         )
       )
-      # close sidebar
     )
   ),
+
 
   # Body----
   body = dashboardBody(
     # compatibility with css
     tags$head(tags$script(src = "doolkit.css")),
-
-    # rgl widget
+    # dkdisplay
     fluidRow(
       # graphics
       column(
         width = 12,
-        uiOutput("dkdisplay"))),
-
-    # # datatable
-    # fluidRow(
-    #   column(
-    #     12,
-    #     tableOutput("table"))),
-
-    textOutput("time")
-
-    # Close Body
+        uiOutput("dkdisplay")
+        )
+      ),
+    )
   )
-  # Close ui
-)
+# ----
 
-
-
-# Define server logic required to draw a histogram----
+# Server----
 server <- function(input, output) {
   # Tabs----
   output$dkdisplay <- renderUI({
@@ -607,6 +461,7 @@ server <- function(input, output) {
 
   # Reactive values----
   batchData <- reactiveValues(data = NULL)
+  loadedItems <- reactiveValues(mesh = NULL)
 
   # Display rgl map----
   #save <- options(rgl.inShiny = TRUE)
@@ -617,11 +472,9 @@ server <- function(input, output) {
         #Wait for fileInput
         req(input$import_surface)
         #Build mesh
-        mesh <- Rvcg::vcgImport(input$import_surface$datapath,
-                                updateNormals = TRUE,
-                                silent = TRUE)
+        loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
         #Build y
-        y <- compute.polygonal(mesh = mesh,
+        y <- compute.polygonal(mesh = loadedItems$mesh,
                                x = input$map_var_select)
         #Color
         col.range <- colrange(input$col_range_select)
@@ -635,20 +488,20 @@ server <- function(input, output) {
         name.tag <- nametag(name = input$import_surface$name,
                             display = input$name_options_select)
         #Alpha
-        ybis <- compute.polygonal(mesh = mesh,
+        ybis <- compute.polygonal(mesh = loadedItems$mesh,
                                   x = input$crop_var_select)
-        polynetwork <- doolkit::poly.network(mesh = mesh,
+        polynetwork <- doolkit::poly.network(mesh = loadedItems$mesh,
                                              y = ybis,
                                              lwr.limit = quantile(ybis, input$net_range_select[1]/100),
                                              upr.limit = quantile(ybis, input$net_range_select[2]/100),
                                              min.size = input$net_size_select)
 
-        alpha <- rep(0.1, Rvcg::nfaces(mesh))
+        alpha <- rep(0.1, Rvcg::nfaces(loadedItems$mesh))
         alpha[polynetwork@faces] <- 0.99
         #Close any existing rgl window
         try(close3d())
         #Build dkmap...
-        dkmap(mesh = mesh,
+        dkmap(mesh = loadedItems$mesh,
               y = y,
               col = col.range,
               col.levels = input$col_levels_select,
@@ -674,11 +527,11 @@ server <- function(input, output) {
     # Wait for fileInput
     req(input$import_surface)
     # Import mesh
-    mesh <- Rvcg::vcgImport(input$import_surface$datapath,
+    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath,
                             updateNormals = TRUE,
                             silent = TRUE)
     # Compute topographic variable
-    y <- compute.polygonal(mesh = mesh,
+    y <- compute.polygonal(mesh = loadedItems$mesh,
                            x = input$map_var_select)
     # ...histogram
     if (input$chart_style == 1) {
@@ -747,17 +600,15 @@ server <- function(input, output) {
   # Output
   output$down_plot_select <- download_box("Untitled", plot_select())
 
-  # Multiple batch analysis----
-  output$time <- renderText({
-    format(Sys.time(), "%a %b %d %X %Y")
-  }) |>
-    bindEvent(input$batch_multi_event)
-
-
-
 
   # Buttons----
-  # ...multibatch
+  # ...single batch----
+  observeEvent(input$batch_single_event, {
+    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    batchData$data <- get_batch_single_dataframe(loadedItems$mesh)
+  })
+
+  # ...multi batch----
   observeEvent(input$batch_multi_event, {
     multi_opcr_patchsize <- input$multi_patch_size_select
     mesh_files <- input$import_multi_surfaces$datapath
@@ -765,12 +616,138 @@ server <- function(input, output) {
   })
 
   # Methods----
-  # ...multi batch
+  # ...3D map----
+  # get color range
+  colrange <- function(x) {
+    if (x == 1) result <- c("white", "black")
+    if (x == 2) result <- colorspace::desaturate(c("royalblue", "white", "red"), amount = 0.3)
+    if (x == 3) result <- colorspace::desaturate(c("royalblue", "lightskyblue", rep("olivedrab3", 3), "yellow1", "orange", "red"), amount = 0.3)
+    if (x == 4) result <- colorspace::desaturate(c("lightgreen","goldenrod1","yellow1","white","white","lightskyblue","dodgerblue4","royalblue"), amount = 0.3)
+    if (x == 5) result <- colorspace::desaturate(c("firebrick4","red","orangered","orange","yellow1","olivedrab3","lightseagreen","royalblue","royalblue4","royalblue","lightseagreen","olivedrab3","yellow1","orange","orangered","red","firebrick4"), amount = 0.3)
+    if (x == 6) result <- colorspace::desaturate(c("blue","green","yellow","orange","red"), amount = 0.3)
+    if (x == 7) result <- colorspace::desaturate(c("dodgerblue4","lightskyblue","sienna4","yellow1","red3","plum1","darkgreen","olivedrab3"), amount = 0.1)
+    if (x == 8) result <- colorspace::desaturate(c("royalblue4","royalblue","lightseagreen","olivedrab3","yellow1","orange","orangered","red","firebrick4"), amount = 0.3)
+    return(result)
+  }
+  # get per triangle values
+  compute.polygonal <- function(mesh, x) {
+    if (x == 1) result <- Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle
+    if (x == 2) result <- doolkit::elev(mesh, origin = FALSE)
+    if (x == 3) result <- doolkit::inclin(mesh)
+    if (x == 4) result <- doolkit::orient(mesh)
+    if (x == 5) result <- doolkit::slope(mesh)
+    if (x == 6) result <- doolkit::angularity(mesh, ratio = FALSE)
+    if (x == 7) result <- doolkit::angularity(mesh, ratio = TRUE)
+    if (x == 8) result <- Rvcg::vcgCurve(mesh)$meanitmax
+    if (x == 9) result <- Rvcg::vcgCurve(mesh)$gaussitmax
+    if (x == 10) result <- Rvcg::vcgCurve(mesh)$K1
+    if (x == 11) result <- Rvcg::vcgCurve(mesh)$K2
+    if (x == 12) result <- doolkit::arc(mesh, range = c(-20, 20))
+    if (x == 13) result <- doolkit::dne(mesh)
+    return(result)
+  }
+  # get variable name on legend
+  dta.legend <- function(x) {
+    if (x == 1) result <- "3D Area"
+    if (x == 2) result <- "Elevation"
+    if (x == 3) result <- "Inclination"
+    if (x == 4) result <- "Orientation"
+    if (x == 5) result <- "Slope"
+    if (x == 6) result <- "Angularity"
+    if (x == 7) result <- "Angularity (as ratio)"
+    if (x == 8) result <- "Mean curvature"
+    if (x == 9) result <- "Gauss curvature"
+    if (x == 10) result <- "Principal curvature K1"
+    if (x == 11) result <- "Principal curvature K2"
+    if (x == 12) result <- "Area-Relative Curvature"
+    if (x == 13) result <- "Dirichlet Normal Energy"
+    return(result)
+  }
+  # get min range according to selected variable
+  minrange <- function(x) {
+    if (x == 1) result <- NULL
+    if (x == 2) result <- NULL
+    if (x == 3) result <- NULL
+    if (x == 4) result <- NULL
+    if (x == 5) result <- 0
+    if (x == 6) result <- NULL
+    if (x == 7) result <- NULL
+    if (x == 8) result <- NULL
+    if (x == 9) result <- NULL
+    if (x == 10) result <- NULL
+    if (x == 11) result <- NULL
+    if (x == 12) result <- -20
+    if (x == 13) result <- NULL
+    return(result)
+  }
+  # get max range according to selected variable
+  maxrange <- function(x) {
+    if (x == 1) result <- NULL
+    if (x == 2) result <- NULL
+    if (x == 3) result <- NULL
+    if (x == 4) result <- NULL
+    if (x == 5) result <- 90
+    if (x == 6) result <- NULL
+    if (x == 7) result <- NULL
+    if (x == 8) result <- NULL
+    if (x == 9) result <- NULL
+    if (x == 10) result <- NULL
+    if (x == 11) result <- NULL
+    if (x == 12) result <- 20
+    if (x == 13) result <- NULL
+    return(result)
+  }
+  # get selected legend type
+  legtype <- function(x) {
+    if (x == 1) result = "stack"
+    if (x == 2) result = "pie"
+    if (x == 3) result = "log"
+    return(result)
+  }
+  # get nametag
+  nametag <- function(name, display) {
+    result <- paste("")
+    if (display) {
+      name <- basename(name)
+      result <- paste(name)
+    }
+    return(result)
+  }
+
+  # ...single batch----
+  get_batch_single_dataframe <- function(mesh_file) {
+    # Prepare function list
+    selected_functions <- c(input$batch_single_event)
+    fun_list <- list()
+    for (fun in selected_functions) {
+
+    if (fun == "3D area") fun_list <- rlist::list.append(fun_list, "3D area" = function(mesh) return(Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle) )
+    if (fun == "Elevation") fun_list <- rlist::list.append(fun_list, "Elevation" = function(mesh) return(doolkit::elev(mesh)))
+    if (fun == "Inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(mesh) return(doolkit::inclin(mesh)))
+    if (fun == "Orientation") fun_list <- rlist::list.append(fun_list, "Orientation" = function(mesh) return(doolkit::orient(mesh)))
+    if (fun == "Slope") fun_list <- rlist::list.append(fun_list, "Slope" = function(mesh) return(doolkit::slope(mesh)))
+    if (fun == "Angularity (in degree)") fun_list <- rlist::list.append(fun_list, "Angularity (in degree)" = function(mesh) return(doolkit::angularity(mesh, ratio = FALSE)))
+    if (fun == "Angularity (as ratio)") fun_list <- rlist::list.append(fun_list, "Angularity (as ratio)" = function(mesh) return(doolkit::angularity(mesh, ratio = TRUE)))
+    if (fun == "Curvature (mean)") fun_list <- rlist::list.append(fun_list, "Curvature (mean)" = function(mesh) return(Rvcg::vcgCurve(mesh)$meanitmax))
+    if (fun == "Curvature (Gaussian)") fun_list <- rlist::list.append(fun_list, "Curvature (Gaussian)" = function(mesh) return(Rvcg::vcgCurve(mesh)$gaussitmax))
+    if (fun == "Curvature (K1)") fun_list <- rlist::list.append(fun_list, "Curvature (K1)" = function(mesh) return(Rvcg::vcgCurve(mesh)$K1))
+    if (fun == "Curvature (K2)") fun_list <- rlist::list.append(fun_list, "Curvature (K2)" = function(mesh) return(Rvcg::vcgCurve(mesh)$K2))
+    if (fun == "Curvature (ARC)") fun_list <- rlist::list.append(fun_list, "Curvature (ARC)" = function(mesh) return(doolkit::arc(mesh, range = c(-20, 20))))
+    if (fun == "Curvature (DNE)") fun_list <- rlist::list.append(fun_list, "Curvature (DNE)" = function(mesh) return(doolkit::dne(mesh)))
+
+    #TODO manage empty lists
+
+    result <- doolkit::tooth_topography(mesh_file, fun_list)
+    return(result)
+    }
+  }
+
+  # ...multi batch----
   get_batch_multi_dataframe <- function(mesh_files, multi_opcr_patchsize) {
     # Prepare function list
-    my_funs <- c(input$multi_table_select_relief, input$multi_table_select_sharpness, input$multi_table_select_shape, input$multi_table_select_complexity)
+    selected_functions <- c(input$multi_table_select_relief, input$multi_table_select_sharpness, input$multi_table_select_shape, input$multi_table_select_complexity)
     fun_list <- list()
-    for (fun in my_funs) {
+    for (fun in selected_functions) {
       if (fun == "3D_area") fun_list <- rlist::list.append(fun_list, "3d_area" = function(mesh) return(Rvcg::vcgArea(mesh)))
       if (fun == "Inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(mesh) return(mean(doolkit::inclin(mesh))))
       if (fun == "Slope") fun_list <- rlist::list.append(fun_list, "Slope" = function(mesh) return(mean(doolkit::slope(mesh))))
@@ -799,7 +776,6 @@ server <- function(input, output) {
       if (fun == "_2bins") fun_list <- rlist::list.append(fun_list, "OPCR_2bins" = function(mesh) return(doolkit::opcr(mesh, bins = 2, min.size = multi_opcr_patchsize)$opcr))
     }
 
-    # fun_list[sapply(fun_list, is.null)] <- NULL
     #TODO manage empty lists
 
     result <- doolkit::batch.multi(mesh_files, fun_list)
@@ -808,5 +784,5 @@ server <- function(input, output) {
 }
 
 
-# Run the application
+# Run the application----
 shinyApp(ui = ui, server = server)
