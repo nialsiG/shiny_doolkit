@@ -87,10 +87,8 @@ ui <- dashboardPage(
               "Angularity (as ratio)" = 7,
               "Curvature (mean)" = 8,
               "Curvature (Gaussian)" = 9,
-              "Curvature (K1)" = 10,
-              "Curvature (K2)" = 11,
-              "Curvature (ARC)" = 12,
-              "Curvature (DNE)" = 13)),
+              "Curvature (ARC)" = 10,
+              "Curvature (DNE)" = 11)),
           sliderInput(
             inputId = "net_range_select",
             label = "Filter range",
@@ -129,10 +127,8 @@ ui <- dashboardPage(
               "Angularity (as ratio)" = 7,
               "Curvature (mean)" = 8,
               "Curvature (Gaussian)" = 9,
-              "Curvature (K1)" = 10,
-              "Curvature (K2)" = 11,
-              "Curvature (ARC)" = 12,
-              "Curvature (DNE)" = 13)),
+              "Curvature (ARC)" = 10,
+              "Curvature (DNE)" = 11)),
           selectInput(
             inputId = "col_range_select",
             label = "Color range",
@@ -206,10 +202,8 @@ ui <- dashboardPage(
               "Angularity (as ratio)" = 7,
               "Curvature (mean)" = 8,
               "Curvature (Gaussian)" = 9,
-              "Curvature (K1)" = 10,
-              "Curvature (K2)" = 11,
-              "Curvature (ARC)" = 12,
-              "Curvature (DNE)" = 13)),
+              "Curvature (ARC)" = 10,
+              "Curvature (DNE)" = 11)),
           # input: select graph type
           selectInput(
             inputId = "chart_style",
@@ -234,7 +228,7 @@ ui <- dashboardPage(
             column(
               4,
               checkboxGroupInput(
-                inputId = "single_table_select_relief",
+                inputId = "single_table_select",
                 label = "Select variables",
                 choices = list(
                   "3D area",
@@ -246,8 +240,6 @@ ui <- dashboardPage(
                   "Angularity (as ratio)",
                   "Curvature (mean)",
                   "Curvature (Gaussian)",
-                  "Curvature (K1)",
-                  "Curvature (K2)",
                   "Curvature (ARC)",
                   "Curvature (DNE)"),
                 selected = c("Slope"))
@@ -262,11 +254,10 @@ ui <- dashboardPage(
       menuItem(
         "Surface-to-surface",
         icon = icon("layer-group"),
-        # ...import
+        # ...import----
         menuItem(
           "File",
           icon = icon("file-import"),
-          # input: import surfaces
           fileInput(
             inputId = "import_oes_surface",
             label = "Select outer surface file",
@@ -280,7 +271,7 @@ ui <- dashboardPage(
             accept = c("text/plain", ".stl", ".ply")
           )
         ),
-        # ...distance
+        # ...distance----
         menuItem(
           "Distance",
           icon = icon("arrows-left-right-to-line")
@@ -415,42 +406,45 @@ server <- function(input, output) {
         tabPanel(
           title = "Map",
           # save
-          div(
-            style = "position: relative; left: 0.5em; bottom: 0.5em;",
-            dropdown(
-              downloadButton(outputId = "down_map_select", label = "Save as html"),
-              size = "xs",
-              icon = icon("download", class = "opt"),
-              up = TRUE)
-          ),
+          # div(
+          #   style = "position: relative; left: 0.5em; bottom: 0.5em;",
+          #   dropdown(
+          #     downloadButton(outputId = "down_map_select", label = "Save as html"),
+          #     size = "xs",
+          #     icon = icon("download", class = "opt"),
+          #     up = TRUE)
+          # ),
           rglwidgetOutput(outputId = "dkmap", width = "512px", height = "512px")
         ),
         # ...Charts
         tabPanel(
           title = "Charts",
           # save
-          div(
-            style = "position: relative; left: 0.5em; bottom: 0.5em;",
-            dropdown(
-              downloadButton(outputId = "down_plot_select", label = "Save plot"),
-              size = "xs",
-              icon = icon("download", class = "opt"),
-              up = TRUE)
-          ),
+          # div(
+          #   style = "position: relative; left: 0.5em; bottom: 0.5em;",
+          #   dropdown(
+          #     downloadButton(outputId = "down_plot_select", label = "Save plot"),
+          #     size = "xs",
+          #     icon = icon("download", class = "opt"),
+          #     up = TRUE)
+          # ),
           plotOutput(outputId = "dkplot", width = "512px", height = "512px")
         ),
         # ...Dataframe
         tabPanel(
           title = "Dataframe",
           # save
-          div(
-            style = "position: relative; left: 0.5em; bottom: 0.5em;",
-            dropdown(
-              downloadButton(outputId = "down_dataframe_select", label = "Save dataframe"),
-              size = "xs",
-              icon = icon("download", class = "opt"),
-              up = TRUE)
-          ),
+          # fluidRow(
+          #   div(
+          #     style = "position: relative; left: 0.5em; bottom: 0.5em;",
+          #   dropdown(
+          #       shiny::downloadButton(outputId = "down_dataframe_select", label = "Save dataframe as .csv"),
+          #       size = "xs",
+          #       icon = icon("download", class = "opt"),
+          #       up = TRUE
+          #   )
+          #   )
+          # ),
           DTOutput(outputId = "body_dataframe")
         )
 
@@ -522,7 +516,7 @@ server <- function(input, output) {
         rglwidget()
       })
 
-  # Display charts----
+  # Display ggplot charts----
   output$dkplot <- renderPlot({
     # Wait for fileInput
     req(input$import_surface)
@@ -573,34 +567,6 @@ server <- function(input, output) {
 
 
 
-
-  # Snapshot rgl----
-  observeEvent(input$map_save_html, {
-    filename <- tcltk::tclvalue(tcltk::tkgetSaveFile(title = "Save map as...",
-                                                     initialfile = "Untitled"))
-    htmlwidgets::saveWidget(rglwidget(width = 512,
-                                      height = 512),
-                            paste(filename,
-                                  ".html",
-                                  sep = ""))
-  })
-
-
-  # Download graphics----
-  download_box <- function(exportname, plot) {
-    downloadHandler(
-      filename = function() {
-        paste(exportname, Sys.Date(), ".png", sep = "")
-      },
-      content = function(file) {
-        ggsave(file, plot = plot, device = "png", width = 8)
-      }
-    )
-  }
-  # Output
-  output$down_plot_select <- download_box("Untitled", plot_select())
-
-
   # Buttons----
   # ...single batch----
   observeEvent(input$batch_single_event, {
@@ -612,8 +578,18 @@ server <- function(input, output) {
   observeEvent(input$batch_multi_event, {
     multi_opcr_patchsize <- input$multi_patch_size_select
     mesh_files <- input$import_multi_surfaces$datapath
-    batchData$data <- get_batch_multi_dataframe(mesh_files, multi_opcr_patchsize)
+    batchData$data <- get_batch_multi_dataframe(mesh_files, input$import_multi_surfaces$name, multi_opcr_patchsize)
   })
+
+  # ...download dataframe----
+  output$down_dataframe_select <- downloadHandler(
+    filename = function() {
+      paste('placeholder.csv', sep='')
+    },
+    content = function(file) {
+      doolkit::dksave(batchData$data, file = file, format = ".csv")
+    }
+  )
 
   # Methods----
   # ...3D map----
@@ -640,10 +616,8 @@ server <- function(input, output) {
     if (x == 7) result <- doolkit::angularity(mesh, ratio = TRUE)
     if (x == 8) result <- Rvcg::vcgCurve(mesh)$meanitmax
     if (x == 9) result <- Rvcg::vcgCurve(mesh)$gaussitmax
-    if (x == 10) result <- Rvcg::vcgCurve(mesh)$K1
-    if (x == 11) result <- Rvcg::vcgCurve(mesh)$K2
-    if (x == 12) result <- doolkit::arc(mesh, range = c(-20, 20))
-    if (x == 13) result <- doolkit::dne(mesh)
+    if (x == 10) result <- doolkit::arc(mesh, range = c(-20, 20))
+    if (x == 11) result <- doolkit::dne(mesh)
     return(result)
   }
   # get variable name on legend
@@ -657,10 +631,8 @@ server <- function(input, output) {
     if (x == 7) result <- "Angularity (as ratio)"
     if (x == 8) result <- "Mean curvature"
     if (x == 9) result <- "Gauss curvature"
-    if (x == 10) result <- "Principal curvature K1"
-    if (x == 11) result <- "Principal curvature K2"
-    if (x == 12) result <- "Area-Relative Curvature"
-    if (x == 13) result <- "Dirichlet Normal Energy"
+    if (x == 10) result <- "Area-Relative Curvature"
+    if (x == 11) result <- "Dirichlet Normal Energy"
     return(result)
   }
   # get min range according to selected variable
@@ -674,10 +646,8 @@ server <- function(input, output) {
     if (x == 7) result <- NULL
     if (x == 8) result <- NULL
     if (x == 9) result <- NULL
-    if (x == 10) result <- NULL
+    if (x == 10) result <- -20
     if (x == 11) result <- NULL
-    if (x == 12) result <- -20
-    if (x == 13) result <- NULL
     return(result)
   }
   # get max range according to selected variable
@@ -691,10 +661,8 @@ server <- function(input, output) {
     if (x == 7) result <- NULL
     if (x == 8) result <- NULL
     if (x == 9) result <- NULL
-    if (x == 10) result <- NULL
+    if (x == 10) result <- 20
     if (x == 11) result <- NULL
-    if (x == 12) result <- 20
-    if (x == 13) result <- NULL
     return(result)
   }
   # get selected legend type
@@ -717,33 +685,35 @@ server <- function(input, output) {
   # ...single batch----
   get_batch_single_dataframe <- function(mesh_file) {
     # Prepare function list
-    selected_functions <- c(input$batch_single_event)
+    selected_functions <- c(input$single_table_select)
     fun_list <- list()
     for (fun in selected_functions) {
 
-    if (fun == "3D area") fun_list <- rlist::list.append(fun_list, "3D area" = function(mesh) return(Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle) )
-    if (fun == "Elevation") fun_list <- rlist::list.append(fun_list, "Elevation" = function(mesh) return(doolkit::elev(mesh)))
-    if (fun == "Inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(mesh) return(doolkit::inclin(mesh)))
-    if (fun == "Orientation") fun_list <- rlist::list.append(fun_list, "Orientation" = function(mesh) return(doolkit::orient(mesh)))
-    if (fun == "Slope") fun_list <- rlist::list.append(fun_list, "Slope" = function(mesh) return(doolkit::slope(mesh)))
-    if (fun == "Angularity (in degree)") fun_list <- rlist::list.append(fun_list, "Angularity (in degree)" = function(mesh) return(doolkit::angularity(mesh, ratio = FALSE)))
-    if (fun == "Angularity (as ratio)") fun_list <- rlist::list.append(fun_list, "Angularity (as ratio)" = function(mesh) return(doolkit::angularity(mesh, ratio = TRUE)))
-    if (fun == "Curvature (mean)") fun_list <- rlist::list.append(fun_list, "Curvature (mean)" = function(mesh) return(Rvcg::vcgCurve(mesh)$meanitmax))
-    if (fun == "Curvature (Gaussian)") fun_list <- rlist::list.append(fun_list, "Curvature (Gaussian)" = function(mesh) return(Rvcg::vcgCurve(mesh)$gaussitmax))
-    if (fun == "Curvature (K1)") fun_list <- rlist::list.append(fun_list, "Curvature (K1)" = function(mesh) return(Rvcg::vcgCurve(mesh)$K1))
-    if (fun == "Curvature (K2)") fun_list <- rlist::list.append(fun_list, "Curvature (K2)" = function(mesh) return(Rvcg::vcgCurve(mesh)$K2))
-    if (fun == "Curvature (ARC)") fun_list <- rlist::list.append(fun_list, "Curvature (ARC)" = function(mesh) return(doolkit::arc(mesh, range = c(-20, 20))))
-    if (fun == "Curvature (DNE)") fun_list <- rlist::list.append(fun_list, "Curvature (DNE)" = function(mesh) return(doolkit::dne(mesh)))
-
-    #TODO manage empty lists
-
-    result <- doolkit::tooth_topography(mesh_file, fun_list)
-    return(result)
+      if (fun == "3D area") fun_list <- rlist::list.append(fun_list, "3D area" = function(mesh) return(Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle))
+      if (fun == "Elevation") fun_list <- rlist::list.append(fun_list, "Elevation" = function(mesh) return(doolkit::elev(mesh)))
+      if (fun == "Inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(mesh) return(doolkit::inclin(mesh)))
+      if (fun == "Orientation") fun_list <- rlist::list.append(fun_list, "Orientation" = function(mesh) return(doolkit::orient(mesh)))
+      if (fun == "Slope") fun_list <- rlist::list.append(fun_list, "Slope" = function(mesh) return(doolkit::slope(mesh)))
+      if (fun == "Angularity (in degree)") fun_list <- rlist::list.append(fun_list, "Angularity_in_degree)" = function(mesh) return(doolkit::angularity(mesh, ratio = FALSE)))
+      if (fun == "Angularity (as ratio)") fun_list <- rlist::list.append(fun_list, "Angularity_as_ratio)" = function(mesh) return(doolkit::angularity(mesh, ratio = TRUE)))
+      if (fun == "Curvature (mean)") fun_list <- rlist::list.append(fun_list, "Mean_curvature" = function(mesh) return(Rvcg::vcgCurve(mesh)$meanitmax))
+      if (fun == "Curvature (Gaussian)") fun_list <- rlist::list.append(fun_list, "Gaussian_curvature" = function(mesh) return(Rvcg::vcgCurve(mesh)$gaussitmax))
+      if (fun == "Curvature (ARC)") fun_list <- rlist::list.append(fun_list, "ARC" = function(mesh) return(doolkit::arc(mesh, range = c(-20, 20))))
+      if (fun == "Curvature (DNE)") fun_list <- rlist::list.append(fun_list, "DNE" = function(mesh) return(doolkit::dne(mesh)))
     }
+
+      #TODO manage empty lists
+
+      result <- doolkit::tooth_topography(mesh_file, fun_list)
+
+      print(c("functions = ", selected_functions))
+      print(c("colnames = ", colnames(result)))
+
+      return(result)
   }
 
   # ...multi batch----
-  get_batch_multi_dataframe <- function(mesh_files, multi_opcr_patchsize) {
+  get_batch_multi_dataframe <- function(mesh_files, filenames, multi_opcr_patchsize) {
     # Prepare function list
     selected_functions <- c(input$multi_table_select_relief, input$multi_table_select_sharpness, input$multi_table_select_shape, input$multi_table_select_complexity)
     fun_list <- list()
@@ -778,7 +748,7 @@ server <- function(input, output) {
 
     #TODO manage empty lists
 
-    result <- doolkit::batch.multi(mesh_files, fun_list)
+    result <- doolkit::batch.multi(files = mesh_files, functions = fun_list, filenames = filenames)
     return(result)
   }
 }
