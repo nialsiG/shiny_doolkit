@@ -9,8 +9,8 @@
 
 
 # Load libraries----
-RGL_USE_NULL <- TRUE
-options(rgl.useNULL = RGL_USE_NULL)
+# RGL_USE_NULL <- TRUE
+# options(rgl.useNULL = RGL_USE_NULL)
 options(htmlwidgets.TOJSON_ARGS = list(na = 'string'))
 library(doolkit)
 library(rgl)
@@ -381,140 +381,122 @@ ui <- dashboardPage(
     # compatibility with css
     tags$head(tags$script(src = "doolkit.css")),
     # dkdisplay
-    fluidRow(
-      # graphics
-      column(
-        width = 12,
-        uiOutput("dkdisplay")
-        )
+    tabBox(
+      # ...3d dkmap
+      tabPanel(
+        title = "Maps",
+        div(
+          style = "position: relative; left: 0.5em; bottom: 0.5em;",
+          dropdown(
+            downloadButton(outputId = "download_map_png", label = "Save plot as .png"),
+            downloadButton(outputId = "download_map_html", label = "Save plot as .html"),
+            size = "xs",
+            icon = icon("download", class = "opt"),
+            up = TRUE)
+        ),
+        rglwidgetOutput(outputId = "dkmap", width = "512px", height = "512px")
       ),
-    )
+      # ...Charts
+      tabPanel(
+        title = "Charts",
+        plotOutput(outputId = "dkplot", width = "512px", height = "512px")
+      ),
+      # ...Dataframe
+      tabPanel(
+        title = "Dataframe",
+        # save
+        fluidRow(
+          div(
+            style = "position: relative; left: 0.5em; bottom: 0.5em;",
+            dropdown(
+              downloadButton(outputId = "download_dataframe_txt", label = "Save as .txt"),
+              downloadButton(outputId = "download_dataframe_csv", label = "Save as .csv"),
+              downloadButton(outputId = "download_dataframe_rds", label = "Save as .RDS"),
+              downloadButton(outputId = "download_dataframe_xlsx", label = "Save as .xlsx"),
+              size = "xs",
+              icon = icon("download", class = "opt"),
+              up = TRUE)
+          )
+        ),
+        fluidRow(
+          DTOutput(outputId = "body_dataframe")
+        )
+      )
+    ),
   )
+)
+
+
+
 # ----
 
 # Server----
 server <- function(input, output) {
-  # Tabs----
-  output$dkdisplay <- renderUI({
-    div(
-      style = "position: relative",
-      tabBox(
-        id = "dkdisplay",
-        height = 600,
-        width = 12,
-        # ...3d dkmap
-        tabPanel(
-          title = "Map",
-          # save
-          # div(
-          #   style = "position: relative; left: 0.5em; bottom: 0.5em;",
-          #   dropdown(
-          #     downloadButton(outputId = "down_map_select", label = "Save as html"),
-          #     size = "xs",
-          #     icon = icon("download", class = "opt"),
-          #     up = TRUE)
-          # ),
-          rglwidgetOutput(outputId = "dkmap", width = "512px", height = "512px")
-        ),
-        # ...Charts
-        tabPanel(
-          title = "Charts",
-          # save
-          # div(
-          #   style = "position: relative; left: 0.5em; bottom: 0.5em;",
-          #   dropdown(
-          #     downloadButton(outputId = "down_plot_select", label = "Save plot"),
-          #     size = "xs",
-          #     icon = icon("download", class = "opt"),
-          #     up = TRUE)
-          # ),
-          plotOutput(outputId = "dkplot", width = "512px", height = "512px")
-        ),
-        # ...Dataframe
-        tabPanel(
-          title = "Dataframe",
-          # save
-          # fluidRow(
-          #   div(
-          #     style = "position: relative; left: 0.5em; bottom: 0.5em;",
-          #   dropdown(
-          #       shiny::downloadButton(outputId = "down_dataframe_select", label = "Save dataframe as .csv"),
-          #       size = "xs",
-          #       icon = icon("download", class = "opt"),
-          #       up = TRUE
-          #   )
-          #   )
-          # ),
-          DTOutput(outputId = "body_dataframe")
-        )
-
-        #end tabBox
-      )
-    )
-  })
-
   # Reactive values----
-  batchData <- reactiveValues(data = NULL)
+  batchData <- reactiveValues(data = data.frame())
   loadedItems <- reactiveValues(mesh = NULL)
+
+  # Make rgl map----
+  get_map <- reactive({
+    #Wait for fileInput
+    req(input$import_surface)
+    #Build mesh
+    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    #Build y
+    y <- compute.polygonal(mesh = loadedItems$mesh,
+                           x = input$map_var_select)
+    #Color
+    col.range <- colrange(input$col_range_select)
+    #Range
+    min.range <- minrange(input$map_var_select)
+    max.range <- maxrange(input$map_var_select)
+    #Legend
+    leg.type <- legtype(input$leg_type_select)
+    leg.label <- dta.legend(input$map_var_select)
+    #Nametag
+    name.tag <- nametag(name = input$import_surface$name,
+                        display = input$name_options_select)
+    #Alpha
+    ybis <- compute.polygonal(mesh = loadedItems$mesh,
+                              x = input$crop_var_select)
+    polynetwork <- doolkit::poly.network(mesh = loadedItems$mesh,
+                                         y = ybis,
+                                         lwr.limit = quantile(ybis, input$net_range_select[1]/100),
+                                         upr.limit = quantile(ybis, input$net_range_select[2]/100),
+                                         min.size = input$net_size_select)
+
+    alpha <- rep(0.1, Rvcg::nfaces(loadedItems$mesh))
+    alpha[polynetwork@faces] <- 0.99
+    #Close any existing rgl window
+    try(close3d())
+    #Build dkmap...
+    dkmap(mesh = loadedItems$mesh,
+          y = y,
+          col = col.range,
+          col.levels = input$col_levels_select,
+          legend.lab = leg.label,
+          legend.type = leg.type,
+          legend = input$leg_options_select,
+          scalebar = input$scale_options_select,
+          alpha = alpha,
+          lit = FALSE,
+          bg = "grey",
+          main = name.tag,
+          cex.main = 2,
+          orient = "occlusal",
+          min.range = min.range,
+          max.range = max.range
+    )
+    #...and display it
+    rglwidget()
+  })
 
   # Display rgl map----
   #save <- options(rgl.inShiny = TRUE)
   #on.exit(options(save))
-  output$dkmap <- renderRglwidget(
-    expr =
-      {
-        #Wait for fileInput
-        req(input$import_surface)
-        #Build mesh
-        loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
-        #Build y
-        y <- compute.polygonal(mesh = loadedItems$mesh,
-                               x = input$map_var_select)
-        #Color
-        col.range <- colrange(input$col_range_select)
-        #Range
-        min.range <- minrange(input$map_var_select)
-        max.range <- maxrange(input$map_var_select)
-        #Legend
-        leg.type <- legtype(input$leg_type_select)
-        leg.label <- dta.legend(input$map_var_select)
-        #Nametag
-        name.tag <- nametag(name = input$import_surface$name,
-                            display = input$name_options_select)
-        #Alpha
-        ybis <- compute.polygonal(mesh = loadedItems$mesh,
-                                  x = input$crop_var_select)
-        polynetwork <- doolkit::poly.network(mesh = loadedItems$mesh,
-                                             y = ybis,
-                                             lwr.limit = quantile(ybis, input$net_range_select[1]/100),
-                                             upr.limit = quantile(ybis, input$net_range_select[2]/100),
-                                             min.size = input$net_size_select)
-
-        alpha <- rep(0.1, Rvcg::nfaces(loadedItems$mesh))
-        alpha[polynetwork@faces] <- 0.99
-        #Close any existing rgl window
-        try(close3d())
-        #Build dkmap...
-        dkmap(mesh = loadedItems$mesh,
-              y = y,
-              col = col.range,
-              col.levels = input$col_levels_select,
-              legend.lab = leg.label,
-              legend.type = leg.type,
-              legend = input$leg_options_select,
-              scalebar = input$scale_options_select,
-              alpha = alpha,
-              lit = FALSE,
-              bg = "grey",
-              main = name.tag,
-              cex.main = 2,
-              orient = "occlusal",
-              min.range = min.range,
-              max.range = max.range
-        )
-        #...and display it
-        rglwidget()
-      })
+  output$dkmap <- renderRglwidget({
+    get_map()
+  })
 
   # Display ggplot charts----
   output$dkplot <- renderPlot({
@@ -582,12 +564,61 @@ server <- function(input, output) {
   })
 
   # ...download dataframe----
-  output$down_dataframe_select <- downloadHandler(
+  # ......as .txt
+  output$download_dataframe_txt <- downloadHandler(
+    filename = function() {
+      paste('placeholder.txt', sep='')
+    },
+    content = function(file) {
+      write.table(batchData$data, file = file, sep = "\t", row.names = F, append = F, quote = F)
+    },
+    contentType = "text/txt"
+  )
+  # ......as .csv
+  output$download_dataframe_csv <- downloadHandler(
     filename = function() {
       paste('placeholder.csv', sep='')
     },
     content = function(file) {
-      doolkit::dksave(batchData$data, file = file, format = ".csv")
+      write.table(batchData$data, file = file, sep = "\t", row.names = F, append = F, quote = F)
+    },
+    contentType = "text/csv"
+  )
+  # ......as .RDS
+  output$download_dataframe_rds <- downloadHandler(
+    filename = function() {
+      paste('placeholder.RDS', sep='')
+    },
+    content = function(file) {
+      saveRDS(batchData$data, file = file)
+    },
+    contentType = "application/octet-stream"
+  )
+  # ......as .xslx
+  output$download_dataframe_xlsx <- downloadHandler(
+    filename = function() {
+      paste('placeholder.xlsx', sep='')
+    },
+    content = function(file) {
+      openxlsx::write.xlsx(batchData$data, file = file, asTable = TRUE)
+    },
+    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  )
+
+  # ...download map
+  # ......as png
+  output$download_map_png <- downloadHandler(
+    filename = "plot.png",
+    content = function(file) {
+      rgl::snapshot3d(file, fmt = "png")
+    }
+  )
+  # ......as html
+  output$download_map_html <- downloadHandler(
+    filename = "interactive_plot.html",
+    content = function(file) {
+      widget_to_save <- get_map()
+      htmlwidgets::saveWidget(widget_to_save, file, selfcontained = TRUE)
     }
   )
 
@@ -704,7 +735,7 @@ server <- function(input, output) {
 
       #TODO manage empty lists
 
-      result <- doolkit::tooth_topography(mesh_file, fun_list)
+      result <- doolkit::batch.single(mesh_file, fun_list)
 
       print(c("functions = ", selected_functions))
       print(c("colnames = ", colnames(result)))
