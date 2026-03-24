@@ -19,7 +19,7 @@ library(shinydashboard)
 library(shinyWidgets)
 library(DT)
 library(shinyjs)
-
+library(svglite)
 
 # UI----
 ui <- dashboardPage(
@@ -399,6 +399,16 @@ ui <- dashboardPage(
       # ...Charts
       tabPanel(
         title = "Charts",
+        div(
+          style = "position: relative; left: 0.5em; bottom: 0.5em;",
+          dropdown(
+            downloadButton(outputId = "download_chart_jpg", label = "Save plot as .jpg"),
+            downloadButton(outputId = "download_chart_png", label = "Save plot as .png"),
+            downloadButton(outputId = "download_chart_svg", label = "Save plot as .svg"),
+            size = "xs",
+            icon = icon("download", class = "opt"),
+            up = TRUE)
+        ),
         plotOutput(outputId = "dkplot", width = "512px", height = "512px")
       ),
       # ...Dataframe
@@ -437,7 +447,7 @@ server <- function(input, output) {
   loadedItems <- reactiveValues(mesh = NULL)
 
   # Make rgl map----
-  get_map <- reactive({
+  make_map <- reactive({
     #Wait for fileInput
     req(input$import_surface)
     #Build mesh
@@ -495,17 +505,17 @@ server <- function(input, output) {
   #save <- options(rgl.inShiny = TRUE)
   #on.exit(options(save))
   output$dkmap <- renderRglwidget({
-    get_map()
+    make_map()
   })
 
-  # Display ggplot charts----
-  output$dkplot <- renderPlot({
+  # Make ggplot chart----
+  make_plot <- reactive({
     # Wait for fileInput
     req(input$import_surface)
     # Import mesh
     loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath,
-                            updateNormals = TRUE,
-                            silent = TRUE)
+                                        updateNormals = TRUE,
+                                        silent = TRUE)
     # Compute topographic variable
     y <- compute.polygonal(mesh = loadedItems$mesh,
                            x = input$map_var_select)
@@ -528,6 +538,10 @@ server <- function(input, output) {
                                           dta.legend(input$map_var_select),
                                           sep = ", ")) +
       ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", size = 12))
+  })
+  # Display ggplot chart----
+  output$dkplot <- renderPlot({
+    make_plot()
   })
 
   # Display dataframe----
@@ -605,7 +619,36 @@ server <- function(input, output) {
     contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   )
 
-  # ...download map
+  # ...download chart----
+  # ......as .jpg
+  output$download_chart_jpg <- downloadHandler(
+    filename = function() {
+      paste("Untitled_chart_", Sys.Date(), ".jpg", sep = "")
+    },
+    content = function(file) {
+      ggplot2::ggsave(file, plot = make_plot(), device = "jpg", width = 8, height = 6)
+    }
+  )
+  # ......as .png
+  output$download_chart_png <- downloadHandler(
+    filename = function() {
+      paste("Untitled_chart_", Sys.Date(), ".png", sep = "")
+    },
+    content = function(file) {
+      ggplot2::ggsave(file, plot = make_plot(), device = "png", width = 8, height = 6)
+    }
+  )
+  # ......as .svg
+  output$download_chart_svg <- downloadHandler(
+    filename = function() {
+      paste("Untitled_chart_", Sys.Date(), ".svg", sep = "")
+    },
+    content = function(file) {
+      ggplot2::ggsave(file, plot = make_plot(), device = "svg", width = 8, height = 6)
+    }
+  )
+
+  # ...download map----
   # ......as png
   output$download_map_png <- downloadHandler(
     filename = "plot.png",
@@ -617,7 +660,7 @@ server <- function(input, output) {
   output$download_map_html <- downloadHandler(
     filename = "interactive_plot.html",
     content = function(file) {
-      widget_to_save <- get_map()
+      widget_to_save <- make_map()
       htmlwidgets::saveWidget(widget_to_save, file, selfcontained = TRUE)
     }
   )
