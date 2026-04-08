@@ -20,6 +20,19 @@ library(shinyWidgets)
 library(DT)
 library(shinyjs)
 library(svglite)
+library(colourpicker)
+
+predefined_palettes <- list(
+  "area2D" = c("white", "black"),
+  "arc" = colorspace::desaturate(c("royalblue", "white", "red"), amount = 0.3),
+  "dne" = colorspace::desaturate(c("royalblue", "lightskyblue", rep("olivedrab3", 3), "yellow1", "orange", "red"), amount = 0.3),
+  "elev" = colorspace::desaturate(c("lightgreen","goldenrod1","yellow1","white","white","lightskyblue","dodgerblue4","royalblue"), amount = 0.3),
+  "inclin" = colorspace::desaturate(c("firebrick4","red","orangered","orange","yellow1","olivedrab3","lightseagreen","royalblue","royalblue4","royalblue","lightseagreen","olivedrab3","yellow1","orange","orangered","red","firebrick4"), amount = 0.3),
+  "oedist" = colorspace::desaturate(c("blue","green","yellow","orange","red"), amount = 0.3),
+  "orient" = colorspace::desaturate(c("dodgerblue4","lightskyblue","sienna4","yellow1","red3","plum1","darkgreen","olivedrab3"), amount = 0.1),
+  "slope" = colorspace::desaturate(c("royalblue4","royalblue","lightseagreen","olivedrab3","yellow1","orange","orangered","red","firebrick4"), amount = 0.3)
+)
+
 
 # UI----
 ui <- dashboardPage(
@@ -108,112 +121,6 @@ ui <- dashboardPage(
           "Tilt",
           icon = icon("lines-leaning")
         ),
-        # ...map----
-        menuItem(
-          "Map",
-          icon = icon("mountain"),
-          # input: select variable
-          selectInput(
-            inputId = "map_var_select",
-            label = "Select variable to map",
-            selected = 2,
-            choices = list(
-              "3D area" = 1,
-              "Elevation" = 2,
-              "Inclination" = 3,
-              "Orientation" = 4,
-              "Slope" = 5,
-              "Angularity (in degree)" = 6,
-              "Angularity (as ratio)" = 7,
-              "Curvature (mean)" = 8,
-              "Curvature (Gaussian)" = 9,
-              "Curvature (ARC)" = 10,
-              "Curvature (DNE)" = 11)),
-          selectInput(
-            inputId = "col_range_select",
-            label = "Color range",
-            selected = 4,
-            choices = list(
-              "angularity" = 1,
-              "arc" = 2,
-              "dne" = 3,
-              "elev" = 4,
-              "inclin" = 5,
-              "oedist" = 6,
-              "orient" = 7,
-              "slope" = 8)),
-          # input: levels
-          sliderInput(
-            inputId = "col_levels_select",
-            label = "Color levels",
-            min = 2,
-            max = 256,
-            value = 256),
-          # input: legend...
-          fluidRow(
-            # ...legend type
-            column(
-              width = 8,
-              selectInput(
-                inputId = "leg_type_select",
-                label = "Legend",
-                selected = 1,
-                choices = list(
-                  "stack" = 1,
-                  "pie" = 2,
-                  "log" = 3))),
-            # ...options
-            column(
-              width = 5,
-              checkboxInput(
-                inputId = "leg_options_select",
-                label = "Display?",
-                value = TRUE),
-              checkboxInput(
-                inputId = "scale_options_select",
-                label = "Scalebar?",
-                value = FALSE)),
-            # ...filename
-            column(
-              width = 5,
-              checkboxInput(
-                inputId = "name_options_select",
-                label = "Filename?",
-                value = FALSE)
-            )
-          )
-        ),
-        # ...distribution----
-        menuItem(
-          "Distribution",
-          icon = icon("chart-column"),
-          # input: select variable to graph
-          selectInput(
-            inputId = "chart_var_select",
-            label = "Select variable to map",
-            selected = 2,
-            choices = list(
-              "3D area" = 1,
-              "Elevation" = 2,
-              "Inclination" = 3,
-              "Orientation" = 4,
-              "Slope" = 5,
-              "Angularity (in degree)" = 6,
-              "Angularity (as ratio)" = 7,
-              "Curvature (mean)" = 8,
-              "Curvature (Gaussian)" = 9,
-              "Curvature (ARC)" = 10,
-              "Curvature (DNE)" = 11)),
-          # input: select graph type
-          selectInput(
-            inputId = "chart_style",
-            label = "Chart style",
-            selected = 1,
-            choices = list(
-              "Histogram" = 1,
-              "Cumulative profile" = 2)
-          )
-        ),
         # ...batch analysis----
         menuItem(
           "Batch analysis",
@@ -245,8 +152,162 @@ ui <- dashboardPage(
                 selected = c("Slope"))
             )
           ),
+
+          # ......variables----
+          fluidRow(
+            column(
+              4,
+              checkboxGroupInput(
+                inputId = "single_table_select_relief",
+                label = "Relief",
+                choices = list(
+                  "Elevation",
+                  "Inclination",
+                  "Orientation",
+                  "Slope"),
+                selected = c("Slope", "Orientation"))
+            ),
+            column(
+              4,
+              checkboxGroupInput(
+                inputId = "single_table_select_sharpness",
+                label = "Sharpness",
+                choices = list(
+                  "Angularity (in degree)",
+                  "Angularity (as ratio)",
+                  "Curvature (mean)",
+                  "Curvature (Gaussian)",
+                  "Curvature (ARC)",
+                  "Curvature (DNE)"),
+                selected = "Curvature (ARC)")
+            )
+          ),
+
+          fluidRow(
+            column(
+              4,
+              checkboxGroupInput(
+                inputId = "single_table_select_topology",
+                label = "Topology",
+                choices = list(
+                  "3D area"),
+                selected = NULL)
+            )
+          ),
+
           # ......start button----
           actionButton("batch_single_event", "Start batch analysis")
+        )
+      ),
+
+      # Map----
+      menuItem(
+        "Map",
+        icon = icon("mountain"),
+
+        # input: color
+        menuItem(
+          "Color",
+          icon = icon("palette"),
+          selectInput("palette_choice", "Select a color palette:",
+                      choices = c("Custom", names(predefined_palettes))),
+          sliderInput("color_count", "Number of palette colors:",
+                      min = 2, max = 10, value = 3),
+          uiOutput("color_pickers_ui")
+        ),
+
+        # input: select variable
+        selectInput(
+          inputId = "map_var_select",
+          label = "Select variable to map",
+          selected = 2,
+          choices = list(
+            "3D area" = 1,
+            "Elevation" = 2,
+            "Inclination" = 3,
+            "Orientation" = 4,
+            "Slope" = 5,
+            "Angularity (in degree)" = 6,
+            "Angularity (as ratio)" = 7,
+            "Curvature (mean)" = 8,
+            "Curvature (Gaussian)" = 9,
+            "Curvature (ARC)" = 10,
+            "Curvature (DNE)" = 11,
+            "Distance" = 12)
+          ),
+
+          # input: levels
+          sliderInput(
+            inputId = "col_levels_select",
+            label = "Legend color levels",
+            min = 2,
+            max = 256,
+            value = 256),
+
+        # input: legend...
+        fluidRow(
+          # ...legend type
+          column(
+            width = 8,
+            selectInput(
+              inputId = "leg_type_select",
+              label = "Legend",
+              selected = 1,
+              choices = list(
+                "stack" = 1,
+                "pie" = 2,
+                "log" = 3))),
+          # ...options
+          column(
+            width = 5,
+            checkboxInput(
+              inputId = "leg_options_select",
+              label = "Display legend",
+              value = TRUE),
+            checkboxInput(
+              inputId = "scale_options_select",
+              label = "Display scalebar",
+              value = FALSE)),
+          # ...filename
+          column(
+            width = 5,
+            checkboxInput(
+              inputId = "name_options_select",
+              label = "Display filename",
+              value = FALSE)
+          )
+        )
+      ),
+
+      # Distribution----
+      menuItem(
+        "Distribution",
+        icon = icon("chart-column"),
+        # input: select variable to graph
+        selectInput(
+          inputId = "chart_var_select",
+          label = "Select variable to map",
+          selected = 2,
+          choices = list(
+            "3D area" = 1,
+            "Elevation" = 2,
+            "Inclination" = 3,
+            "Orientation" = 4,
+            "Slope" = 5,
+            "Angularity (in degree)" = 6,
+            "Angularity (as ratio)" = 7,
+            "Curvature (mean)" = 8,
+            "Curvature (Gaussian)" = 9,
+            "Curvature (ARC)" = 10,
+            "Curvature (DNE)" = 11)),
+        # input: select graph type
+        selectInput(
+          inputId = "chart_style",
+          label = "Chart style",
+          selected = 1,
+          choices = list(
+            "Histogram" = 1,
+            "Cumulative profile" = 2)
         )
       ),
 
@@ -271,10 +332,125 @@ ui <- dashboardPage(
             accept = c("text/plain", ".stl", ".ply")
           )
         ),
-        # ...distance----
+
+        # ...pairing----
         menuItem(
-          "Distance",
-          icon = icon("arrows-left-right-to-line")
+          "Pairing",
+          icon = icon("arrows-left-right-to-line"),
+          # input: select pairing method
+          selectInput(
+            inputId = "pairing_method_select",
+            label = "Select mesh-to-mesh triangle pairing method",
+            selected = 2,
+            choices = list(
+              "Nearest triangle" = 1,
+              "Along normals" = 2,
+              "Along Z-axis" = 3
+            )
+          )
+        ),
+        # ...face-scale analysis----
+        menuItem(
+          "Face-scale analysis",
+          icon = icon("object-group"),
+          menuItem(
+            "Options...",
+            icon = icon("gears")
+            #TODO add options here
+          ),
+          # ......variables----
+          fluidRow(
+            column(
+              4,
+              checkboxGroupInput(
+                inputId = "single_table_select",
+                label = "Select variables",
+                choices = list(
+                  "Paired triangle indices",
+                  "Distance",
+                  "Elevation delta",
+                  "Inclination delta",
+                  "Slope delta",
+                  "Angularity delta (in degree)",
+                  "Angularity delta (as ratio)",
+                  "Curvature delta (mean)",
+                  "Curvature delta (Gaussian)",
+                  "Curvature delta (ARC)",
+                  "Curvature delta (DNE)"),
+                selected = c("Paired triangle indices", "Distance"))
+            )
+          ),
+          # ......start button----
+          actionButton("batch_single_event", "Start batch analysis")
+        ),
+
+          # ...mesh-scale analysis----
+          menuItem(
+            "Mesh-scale analysis",
+            icon = icon("object-group"),
+            menuItem(
+              "Options...",
+              icon = icon("gears")
+              #TODO add options here
+            ),
+            # ......variables----
+            fluidRow(
+              column(
+                4,
+                checkboxGroupInput(
+                  inputId = "double_table_select_relief",
+                  label = "Relief",
+                  choices = list(
+                    "3D_area",
+                    "Inclination",
+                    "Slope",
+                    "RFI",
+                    "LRFI",
+                    "Gamma"),
+                  selected = c("Slope"))
+              ),
+              column(
+                4,
+                checkboxGroupInput(
+                  inputId = "double_table_select_sharpness",
+                  label = "Sharpness",
+                  choices = list(
+                    "Angularity",
+                    "_ratio",
+                    "DNE",
+                    "ARC",
+                    "_positive",
+                    "_negative"),
+                  selected = "DNE")
+              )
+            ),
+
+            fluidRow(
+              column(
+                4,
+                checkboxGroupInput(
+                  inputId = "double_table_select_distance",
+                  label = "Shape",
+                  choices = list(
+                    "Distance",
+                    "Elongation",
+                    "Lemniscate"),
+                  selected = NULL)
+              ),
+              column(
+                4,
+                checkboxGroupInput(
+                  inputId = "double_table_select_complexity",
+                  label = "Complexity",
+                  choices = list(
+                    "OPCR",
+                    "_4bins",
+                    "_2bins"),
+                  selected = "OPCR")
+              )
+            ),
+            # ......start button----
+          actionButton("batch_single_event", "Start batch analysis")
         )
       ),
 
@@ -456,7 +632,7 @@ server <- function(input, output) {
     y <- compute.polygonal(mesh = loadedItems$mesh,
                            x = input$map_var_select)
     #Color
-    col.range <- colrange(input$col_range_select)
+    col.range <- stored_colors()
     #Range
     min.range <- minrange(input$map_var_select)
     max.range <- maxrange(input$map_var_select)
@@ -570,6 +746,8 @@ server <- function(input, output) {
     batchData$data <- get_batch_single_dataframe(loadedItems$mesh)
   })
 
+  # ...double batch
+
   # ...multi batch----
   observeEvent(input$batch_multi_event, {
     multi_opcr_patchsize <- input$multi_patch_size_select
@@ -665,20 +843,50 @@ server <- function(input, output) {
     }
   )
 
+  # COLORS!
+  # Update slider when a predefined palette is chosen
+  observeEvent(input$palette_choice, {
+    if (input$palette_choice != "Custom") {
+      palette <- predefined_palettes[[input$palette_choice]]
+      updateSliderInput(inputId = "color_count", value = length(palette))
+    }
+  })
+
+  # Dynamically generate the color picker inputs
+  output$color_pickers_ui <- renderUI({
+    count <- input$color_count
+
+    # Check if we should use colors from a template or default to black
+    current_palette <- if (input$palette_choice != "Custom") {
+      predefined_palettes[[input$palette_choice]]
+    } else {
+      grDevices::colorRampPalette(c("black","white"))(count)
+    }
+
+    # Create a list of colourInput widgets
+    lapply(1:count, function(i) {
+      # Use template color if available, otherwise default to black
+      init_color <- if(i <= length(current_palette)) current_palette[i] #else "#000000"
+
+      colourInput(inputId = paste0("col_", i),
+                  label = paste("Color", i),
+                  value = init_color)
+    })
+  })
+
+  # Reactive expression to store and retrieve the color vector
+  stored_colors <- reactive({
+    count <- input$color_count
+    default_palette <- grDevices::colorRampPalette(c("black","white"))(count)
+    # Collect values from the dynamically created inputs
+    vapply(1:count, function(i) {
+      input[[paste0("col_", i)]] %||% default_palette[i]
+    }, character(1))
+  })
+
+
   # Methods----
   # ...3D map----
-  # get color range
-  colrange <- function(x) {
-    if (x == 1) result <- c("white", "black")
-    if (x == 2) result <- colorspace::desaturate(c("royalblue", "white", "red"), amount = 0.3)
-    if (x == 3) result <- colorspace::desaturate(c("royalblue", "lightskyblue", rep("olivedrab3", 3), "yellow1", "orange", "red"), amount = 0.3)
-    if (x == 4) result <- colorspace::desaturate(c("lightgreen","goldenrod1","yellow1","white","white","lightskyblue","dodgerblue4","royalblue"), amount = 0.3)
-    if (x == 5) result <- colorspace::desaturate(c("firebrick4","red","orangered","orange","yellow1","olivedrab3","lightseagreen","royalblue","royalblue4","royalblue","lightseagreen","olivedrab3","yellow1","orange","orangered","red","firebrick4"), amount = 0.3)
-    if (x == 6) result <- colorspace::desaturate(c("blue","green","yellow","orange","red"), amount = 0.3)
-    if (x == 7) result <- colorspace::desaturate(c("dodgerblue4","lightskyblue","sienna4","yellow1","red3","plum1","darkgreen","olivedrab3"), amount = 0.1)
-    if (x == 8) result <- colorspace::desaturate(c("royalblue4","royalblue","lightseagreen","olivedrab3","yellow1","orange","orangered","red","firebrick4"), amount = 0.3)
-    return(result)
-  }
   # get per triangle values
   compute.polygonal <- function(mesh, x) {
     if (x == 1) result <- Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle
