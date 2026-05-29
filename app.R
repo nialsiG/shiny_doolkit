@@ -9,8 +9,6 @@
 
 
 # Load libraries----
-# RGL_USE_NULL <- TRUE
-# options(rgl.useNULL = RGL_USE_NULL)
 options(htmlwidgets.TOJSON_ARGS = list(na = 'string'))
 library(doolkit)
 library(rgl)
@@ -81,6 +79,9 @@ ui <- dashboardPage(
             accept = c("text/plain", ".stl", ".ply")
           )
         ),
+        # Input to let the user select the max upload size in MB
+        numericInput("max_upload_size", "Set Max Upload Size (MB):", value = 5, min = 1, max = 1000),
+        actionButton("update_limit", "Apply New Limit", class = "btn-primary"),
         # ...crop----
         menuItem(
           "Crop",
@@ -135,29 +136,6 @@ ui <- dashboardPage(
             column(
               4,
               checkboxGroupInput(
-                inputId = "single_table_select",
-                label = "Select variables",
-                choices = list(
-                  "3D area",
-                  "Elevation",
-                  "Inclination",
-                  "Orientation",
-                  "Slope",
-                  "Angularity (in degree)",
-                  "Angularity (as ratio)",
-                  "Curvature (mean)",
-                  "Curvature (Gaussian)",
-                  "Curvature (ARC)",
-                  "Curvature (DNE)"),
-                selected = c("Slope"))
-            )
-          ),
-
-          # ......variables----
-          fluidRow(
-            column(
-              4,
-              checkboxGroupInput(
                 inputId = "single_table_select_relief",
                 label = "Relief",
                 choices = list(
@@ -165,7 +143,13 @@ ui <- dashboardPage(
                   "Inclination",
                   "Orientation",
                   "Slope"),
-                selected = c("Slope", "Orientation"))
+                selected = c("Slope", "Orientation")),
+              checkboxGroupInput(
+                inputId = "single_table_select_topology",
+                label = "Topology",
+                choices = list(
+                  "3D area"),
+                selected = NULL)
             ),
             column(
               4,
@@ -183,18 +167,6 @@ ui <- dashboardPage(
             )
           ),
 
-          fluidRow(
-            column(
-              4,
-              checkboxGroupInput(
-                inputId = "single_table_select_topology",
-                label = "Topology",
-                choices = list(
-                  "3D area"),
-                selected = NULL)
-            )
-          ),
-
           # ......start button----
           actionButton("batch_single_event", "Start batch analysis")
         )
@@ -204,17 +176,6 @@ ui <- dashboardPage(
       menuItem(
         "Map",
         icon = icon("mountain"),
-
-        # input: color
-        menuItem(
-          "Color",
-          icon = icon("palette"),
-          selectInput("palette_choice", "Select a color palette:",
-                      choices = c("Custom", names(predefined_palettes))),
-          sliderInput("color_count", "Number of palette colors:",
-                      min = 2, max = 10, value = 3),
-          uiOutput("color_pickers_ui")
-        ),
 
         # input: select variable
         selectInput(
@@ -234,48 +195,57 @@ ui <- dashboardPage(
             "Curvature (ARC)" = 10,
             "Curvature (DNE)" = 11,
             "Distance" = 12)
-          ),
+        ),
 
-          # input: levels
-          sliderInput(
-            inputId = "col_levels_select",
-            label = "Legend color levels",
-            min = 2,
-            max = 256,
-            value = 256),
+        # input: color
+        menuItem(
+          "Color",
+          icon = icon("palette"),
+          selectInput("palette_choice", "Select a color palette:",
+                      choices = c("Custom", names(predefined_palettes))),
+          sliderInput("color_count", "Number of palette colors:",
+                      min = 2, max = 10, value = 3),
+          uiOutput("color_pickers_ui")
+        ),
 
-        # input: legend...
-        fluidRow(
-          # ...legend type
-          column(
-            width = 8,
-            selectInput(
-              inputId = "leg_type_select",
-              label = "Legend",
-              selected = 1,
-              choices = list(
-                "stack" = 1,
-                "pie" = 2,
-                "log" = 3))),
-          # ...options
-          column(
-            width = 5,
+        # input: legend
+        menuItem(
+          "Legend",
+          icon = icon("chart-bar"),
+            # ...color levels
+            sliderInput(
+              inputId = "col_levels_select",
+              label = "Legend color levels",
+              min = 2,
+              max = 256,
+              value = 256),
+
+          fluidRow(
+            # ...legend type
+            column(
+              width = 8,
+              selectInput(
+                inputId = "leg_type_select",
+                label = "Legend type",
+                selected = 1,
+                choices = list(
+                  "stack" = 1,
+                  "pie" = 2,
+                  "log" = 3)),
+            # ...options
             checkboxInput(
               inputId = "leg_options_select",
-              label = "Display legend",
+              label = "Show legend",
               value = TRUE),
             checkboxInput(
               inputId = "scale_options_select",
-              label = "Display scalebar",
-              value = FALSE)),
-          # ...filename
-          column(
-            width = 5,
+              label = "Show scalebar",
+              value = FALSE),
             checkboxInput(
               inputId = "name_options_select",
-              label = "Display filename",
+              label = "Show filename",
               value = FALSE)
-          )
+          ))
         )
       ),
 
@@ -308,6 +278,24 @@ ui <- dashboardPage(
           choices = list(
             "Histogram" = 1,
             "Cumulative profile" = 2)
+        ),
+
+        # input: options
+        menuItem(
+          "Options",
+          icon = icon("gears"),
+          checkboxInput(
+            inputId = "chart_options_percentage",
+            label = "Draw profile using percentage",
+            value = TRUE),
+          checkboxInput(
+            inputId = "chart_options_show_auc",
+            label = "Show profile AUC",
+            value = FALSE),
+          checkboxInput(
+            inputId = "chart_options_show_slope",
+            label = "Show profile slope",
+            value = FALSE)
         )
       ),
 
@@ -363,7 +351,7 @@ ui <- dashboardPage(
             column(
               4,
               checkboxGroupInput(
-                inputId = "single_table_select",
+                inputId = "double_table_select",
                 label = "Select variables",
                 choices = list(
                   "Paired triangle indices",
@@ -381,7 +369,7 @@ ui <- dashboardPage(
             )
           ),
           # ......start button----
-          actionButton("batch_single_event", "Start batch analysis")
+          actionButton("face_batch_double_event", "Start batch analysis")
         ),
 
           # ...mesh-scale analysis----
@@ -450,7 +438,7 @@ ui <- dashboardPage(
               )
             ),
             # ......start button----
-          actionButton("batch_single_event", "Start batch analysis")
+          actionButton("mesh_batch_double_event", "Start batch analysis")
         )
       ),
 
@@ -617,10 +605,28 @@ ui <- dashboardPage(
 # ----
 
 # Server----
-server <- function(input, output) {
+server <- function(input, output, session) {
   # Reactive values----
   batchData <- reactiveValues(data = data.frame())
   loadedItems <- reactiveValues(mesh = NULL)
+
+  # RGL
+  options(rgl.useNULL = TRUE)
+
+
+  # Change max upload size
+  # ...initialize at 5MB
+  options(shiny.maxRequestSize = 5 * 1024^2)
+  # ...on value changed
+  observeEvent(input$update_limit, {
+    req(input$max_upload_size)
+    new_size_bytes <- input$max_upload_size * 1024^2
+    options(shiny.maxRequestSize = new_size_bytes)
+    showNotification(
+      paste("Upload limit updated to", input$max_upload_size, "MB"),
+      type = "message"
+    )
+  })
 
   # Make rgl map----
   make_map <- reactive({
@@ -694,31 +700,37 @@ server <- function(input, output) {
                                         silent = TRUE)
     # Compute topographic variable
     y <- compute.polygonal(mesh = loadedItems$mesh,
-                           x = input$map_var_select)
+                           x = input$chart_var_select)
     # ...histogram
     if (input$chart_style == 1) {
       dkdata <- data.frame(y = y)
       plot <- ggplot2::ggplot(dkdata, ggplot2::aes(x = y)) +
         ggplot2::geom_histogram(color = "white", fill = "hotpink") +
-        ggplot2::labs(dta.legend(input$map_var_select))
+        ggplot2::xlab(dta.legend(input$chart_var_select))
       plotname <- "Histogram"
     } else {
       # ...profile
       if (input$chart_style == 2) {
-        plot <- dkprofile(y, col = "hotpink")$profile
+        profile <- dkprofile(y, col = "hotpink", as.percentage = input$chart_options_percentage)
+        plot <- profile$profile
         plotname <- "Cumulative profile"
+
       }
     }
     # add title
-    plot + ggplot2::ggtitle(label = paste(plotname,
-                                          dta.legend(input$map_var_select),
-                                          sep = ", ")) +
+    plot_complete_title <- paste(plotname,
+                   dta.legend(input$chart_var_select),
+                   sep = ", ")
+    if (input$chart_options_show_slope && input$chart_style == 2) plot_complete_title <- paste(plot_complete_title, "\nslope: ", profile$slope)
+    if (input$chart_options_show_auc && input$chart_style == 2) plot_complete_title <- paste(plot_complete_title, "\nAUC: ", profile$auc)
+    plot + ggplot2::ggtitle(label = plot_complete_title) +
       ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", size = 12))
   })
   # Display ggplot chart----
   output$dkplot <- renderPlot({
     make_plot()
   })
+
 
   # Display dataframe----
   output$body_dataframe <- renderDT({
@@ -967,7 +979,7 @@ server <- function(input, output) {
   # ...single batch----
   get_batch_single_dataframe <- function(mesh_file) {
     # Prepare function list
-    selected_functions <- c(input$single_table_select)
+    selected_functions <- c(input$single_table_select_topology, input$single_table_select_relief, input$single_table_select_sharpness)
     fun_list <- list()
     for (fun in selected_functions) {
 
@@ -1033,6 +1045,12 @@ server <- function(input, output) {
     result <- doolkit::batch.multi(files = mesh_files, functions = fun_list, filenames = filenames)
     return(result)
   }
+
+  session$onSessionEnded(function() {
+    options(shiny.maxRequestSize = 5 * 1024^2)
+    options(rgl.useNULL = FALSE)
+    message("Session ended. Resetting shiny.maxRequestSize to 5MB.")
+  })
 }
 
 
