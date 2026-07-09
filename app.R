@@ -67,10 +67,20 @@ ui <- dashboardPage(
       menuItem(
         "Single surface",
         icon = icon("tooth"),
-        # ...import----
+        # Import----
         menuItem(
           "File",
           icon = icon("file-import"),
+
+          # Input to let the user select the max upload size in MB
+          menuItem(
+            "Options...",
+            icon = icon("gears"),
+            # input: import surfaces
+            numericInput("max_upload_size", "Set Max Upload Size (MB):", value = 5, min = 1, max = 1000),
+            actionButton("update_limit", "Apply New Limit", class = "btn-primary")
+          ),
+
           # input: import surfaces
           fileInput(
             inputId = "import_surface",
@@ -79,10 +89,7 @@ ui <- dashboardPage(
             accept = c("text/plain", ".stl", ".ply")
           )
         ),
-        # Input to let the user select the max upload size in MB
-        numericInput("max_upload_size", "Set Max Upload Size (MB):", value = 5, min = 1, max = 1000),
-        actionButton("update_limit", "Apply New Limit", class = "btn-primary"),
-        # ...crop----
+        # Crop----
         menuItem(
           "Crop",
           icon = icon("crop"),
@@ -117,12 +124,12 @@ ui <- dashboardPage(
             value = median(seq(1, 100))
           )
         ),
-        # ...tilt----
+        # Tilt----
         menuItem(
           "Tilt",
           icon = icon("lines-leaning")
         ),
-        # ...batch analysis----
+        # Single batch analysis----
         menuItem(
           "Batch analysis",
           icon = icon("object-group"),
@@ -131,7 +138,7 @@ ui <- dashboardPage(
             icon = icon("gears")
             #TODO add options here
           ),
-          # ......variables----
+          # ...variables----
           fluidRow(
             column(
               4,
@@ -167,7 +174,7 @@ ui <- dashboardPage(
             )
           ),
 
-          # ......start button----
+          # ...start button----
           actionButton("batch_single_event", "Start batch analysis")
         )
       ),
@@ -303,7 +310,7 @@ ui <- dashboardPage(
       menuItem(
         "Surface-to-surface",
         icon = icon("layer-group"),
-        # ...import----
+        # Import----
         menuItem(
           "File",
           icon = icon("file-import"),
@@ -321,7 +328,7 @@ ui <- dashboardPage(
           )
         ),
 
-        # ...pairing----
+        # Pairing----
         menuItem(
           "Pairing",
           icon = icon("arrows-left-right-to-line"),
@@ -335,9 +342,11 @@ ui <- dashboardPage(
               "Along normals" = 2,
               "Along Z-axis" = 3
             )
-          )
-        ),
-        # ...face-scale analysis----
+          ),
+          # start button
+          actionButton("start_pairing_event", "Start face pairing")
+          ),
+        # Face-scale analysis----
         menuItem(
           "Face-scale analysis",
           icon = icon("object-group"),
@@ -346,10 +355,8 @@ ui <- dashboardPage(
             icon = icon("gears")
             #TODO add options here
           ),
-          # ......variables----
+          # ...variables----
           fluidRow(
-            column(
-              4,
               checkboxGroupInput(
                 inputId = "double_table_select",
                 label = "Select variables",
@@ -366,78 +373,77 @@ ui <- dashboardPage(
                   "Curvature delta (ARC)",
                   "Curvature delta (DNE)"),
                 selected = c("Paired triangle indices", "Distance"))
-            )
           ),
-          # ......start button----
+          # ...start button----
           actionButton("face_batch_double_event", "Start batch analysis")
         ),
 
-          # ...mesh-scale analysis----
+        # Mesh-scale analysis----
+        menuItem(
+          "Mesh-scale analysis",
+          icon = icon("object-group"),
           menuItem(
-            "Mesh-scale analysis",
-            icon = icon("object-group"),
-            menuItem(
-              "Options...",
-              icon = icon("gears")
-              #TODO add options here
+            "Options...",
+            icon = icon("gears")
+            #TODO add options here
+          ),
+          # ...variables----
+          fluidRow(
+            column(
+              4,
+              checkboxGroupInput(
+                inputId = "double_table_select_relief",
+                label = "Relief",
+                choices = list(
+                  "3D_area",
+                  "Inclination",
+                  "Slope",
+                  "RFI",
+                  "LRFI",
+                  "Gamma"),
+                selected = c("Slope"))
             ),
-            # ......variables----
-            fluidRow(
-              column(
-                4,
-                checkboxGroupInput(
-                  inputId = "double_table_select_relief",
-                  label = "Relief",
-                  choices = list(
-                    "3D_area",
-                    "Inclination",
-                    "Slope",
-                    "RFI",
-                    "LRFI",
-                    "Gamma"),
-                  selected = c("Slope"))
-              ),
-              column(
-                4,
-                checkboxGroupInput(
-                  inputId = "double_table_select_sharpness",
-                  label = "Sharpness",
-                  choices = list(
-                    "Angularity",
-                    "_ratio",
-                    "DNE",
-                    "ARC",
-                    "_positive",
-                    "_negative"),
-                  selected = "DNE")
-              )
-            ),
+            column(
+              4,
+              checkboxGroupInput(
+                inputId = "double_table_select_sharpness",
+                label = "Sharpness",
+                choices = list(
+                  "Angularity",
+                  "_ratio",
+                  "DNE",
+                  "ARC",
+                  "_positive",
+                  "_negative"),
+                selected = "DNE")
+            )
+          ),
 
-            fluidRow(
-              column(
-                4,
-                checkboxGroupInput(
-                  inputId = "double_table_select_distance",
-                  label = "Shape",
-                  choices = list(
-                    "Distance",
-                    "Elongation",
-                    "Lemniscate"),
-                  selected = NULL)
-              ),
-              column(
-                4,
-                checkboxGroupInput(
-                  inputId = "double_table_select_complexity",
-                  label = "Complexity",
-                  choices = list(
-                    "OPCR",
-                    "_4bins",
-                    "_2bins"),
-                  selected = "OPCR")
-              )
+          fluidRow(
+            column(
+              4,
+              checkboxGroupInput(
+                inputId = "double_table_select_distance",
+                label = "Shape",
+                choices = list(
+                  "Distance",
+                  "Elongation",
+                  "Lemniscate"),
+                selected = NULL)
             ),
-            # ......start button----
+            column(
+              4,
+              checkboxGroupInput(
+                inputId = "double_table_select_complexity",
+                label = "Complexity",
+                choices = list(
+                  "OPCR",
+                  "_4bins",
+                  "_2bins"),
+                selected = "OPCR")
+            )
+          ),
+          # ...start button----
           actionButton("mesh_batch_double_event", "Start batch analysis")
         )
       ),
@@ -446,7 +452,7 @@ ui <- dashboardPage(
       menuItem(
         "Multi-surface",
         icon = icon("cubes"),
-        # ...import----
+        # Import----
         menuItem(
           "Files",
           icon = icon("file-import"),
@@ -458,11 +464,11 @@ ui <- dashboardPage(
             accept = c("text/plain", ".stl", ".ply")
           )
         ),
-        # ...batch analysis----
+        # Batch analysis----
         menuItem(
           "Batch analysis",
           icon = icon("object-group"),
-          # ......options----
+          # ...options----
           menuItem(
             "Options...",
             icon = icon("gears"),
@@ -476,7 +482,7 @@ ui <- dashboardPage(
             )
             #TODO add options here
           ),
-          # ......variables----
+          # ...variables----
           fluidRow(
             column(
               4,
@@ -532,7 +538,7 @@ ui <- dashboardPage(
                 selected = "OPCR")
             )
           ),
-          # ......start button----
+          # ...start button----
           actionButton("batch_multi_event", "Start batch analysis")
         )
       )
@@ -596,9 +602,9 @@ ui <- dashboardPage(
           DTOutput(outputId = "body_dataframe")
         )
       )
-    ),
+    )
   )
-)
+ )
 
 
 
@@ -608,11 +614,10 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
   # Reactive values----
   batchData <- reactiveValues(data = data.frame())
-  loadedItems <- reactiveValues(mesh = NULL)
+  loadedItems <- reactiveValues(mesh = NULL, meshB = NULL)
 
   # RGL
   options(rgl.useNULL = TRUE)
-
 
   # Change max upload size
   # ...initialize at 5MB
@@ -628,6 +633,42 @@ server <- function(input, output, session) {
     )
   })
 
+  # Make ggplot chart----
+  make_plot <- reactive({
+    # Wait for fileInput
+    req(input$import_surface)
+    # Import mesh
+    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath,
+                                        updateNormals = TRUE,
+                                        silent = TRUE)
+    # Compute topographic variable
+    y <- compute.polygonal(mesh = loadedItems$mesh,
+                           x = input$chart_var_select)
+    # ...histogram
+    if (input$chart_style == 1) {
+      dkdata <- data.frame(y = y)
+      plot <- ggplot2::ggplot(dkdata, ggplot2::aes(x = y)) +
+        ggplot2::geom_histogram(color = "white", fill = "hotpink") +
+        ggplot2::xlab(dta.legend(input$chart_var_select))
+      plotname <- "Histogram"
+    } else {
+      # ...profile
+      if (input$chart_style == 2) {
+        profile <- dkprofile(y, col = "hotpink", as.percentage = input$chart_options_percentage)
+        plot <- profile$profile
+        plotname <- "Cumulative profile"
+
+      }
+    }
+    # add title
+    plot_complete_title <- paste(plotname,
+                   dta.legend(input$chart_var_select),
+                   sep = ", ")
+    if (input$chart_options_show_slope && input$chart_style == 2) plot_complete_title <- paste(plot_complete_title, "\nslope: ", profile$slope)
+    if (input$chart_options_show_auc && input$chart_style == 2) plot_complete_title <- paste(plot_complete_title, "\nAUC: ", profile$auc)
+    plot + ggplot2::ggtitle(label = plot_complete_title) +
+      ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", size = 12))
+  })
   # Make rgl map----
   make_map <- reactive({
     #Wait for fileInput
@@ -683,55 +724,6 @@ server <- function(input, output, session) {
     rglwidget()
   })
 
-  # Display rgl map----
-  #save <- options(rgl.inShiny = TRUE)
-  #on.exit(options(save))
-  output$dkmap <- renderRglwidget({
-    make_map()
-  })
-
-  # Make ggplot chart----
-  make_plot <- reactive({
-    # Wait for fileInput
-    req(input$import_surface)
-    # Import mesh
-    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath,
-                                        updateNormals = TRUE,
-                                        silent = TRUE)
-    # Compute topographic variable
-    y <- compute.polygonal(mesh = loadedItems$mesh,
-                           x = input$chart_var_select)
-    # ...histogram
-    if (input$chart_style == 1) {
-      dkdata <- data.frame(y = y)
-      plot <- ggplot2::ggplot(dkdata, ggplot2::aes(x = y)) +
-        ggplot2::geom_histogram(color = "white", fill = "hotpink") +
-        ggplot2::xlab(dta.legend(input$chart_var_select))
-      plotname <- "Histogram"
-    } else {
-      # ...profile
-      if (input$chart_style == 2) {
-        profile <- dkprofile(y, col = "hotpink", as.percentage = input$chart_options_percentage)
-        plot <- profile$profile
-        plotname <- "Cumulative profile"
-
-      }
-    }
-    # add title
-    plot_complete_title <- paste(plotname,
-                   dta.legend(input$chart_var_select),
-                   sep = ", ")
-    if (input$chart_options_show_slope && input$chart_style == 2) plot_complete_title <- paste(plot_complete_title, "\nslope: ", profile$slope)
-    if (input$chart_options_show_auc && input$chart_style == 2) plot_complete_title <- paste(plot_complete_title, "\nAUC: ", profile$auc)
-    plot + ggplot2::ggtitle(label = plot_complete_title) +
-      ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", size = 12))
-  })
-  # Display ggplot chart----
-  output$dkplot <- renderPlot({
-    make_plot()
-  })
-
-
   # Display dataframe----
   output$body_dataframe <- renderDT({
     Mydf <- batchData$data
@@ -751,22 +743,61 @@ server <- function(input, output, session) {
 
 
 
+  # Display ggplot chart----
+  output$dkplot <- renderPlot({
+    make_plot()
+  })
+
+
+  # Display rgl map----
+  #save <- options(rgl.inShiny = TRUE)
+  #on.exit(options(save))
+  output$dkmap <- renderRglwidget({
+    make_map()
+  })
+
+  # Color picking----
+  # Update slider when a predefined palette is chosen
+  observeEvent(input$palette_choice, {
+    if (input$palette_choice != "Custom") {
+      palette <- predefined_palettes[[input$palette_choice]]
+      updateSliderInput(inputId = "color_count", value = length(palette))
+    }
+  })
+
+  # Dynamically generate the color picker inputs
+  output$color_pickers_ui <- renderUI({
+    count <- input$color_count
+
+    # Check if we should use colors from a template or default to black
+    current_palette <- if (input$palette_choice != "Custom") {
+      predefined_palettes[[input$palette_choice]]
+    } else {
+      grDevices::colorRampPalette(c("black","white"))(count)
+    }
+
+    # Create a list of colourInput widgets
+    lapply(1:count, function(i) {
+      # Use template color if available, otherwise default to black
+      init_color <- if(i <= length(current_palette)) current_palette[i] #else "#000000"
+
+      colourInput(inputId = paste0("col_", i),
+                  label = paste("Color", i),
+                  value = init_color)
+    })
+  })
+
+  # Reactive expression to store and retrieve the color vector
+  stored_colors <- reactive({
+    count <- input$color_count
+    default_palette <- grDevices::colorRampPalette(c("black","white"))(count)
+    # Collect values from the dynamically created inputs
+    vapply(1:count, function(i) {
+      input[[paste0("col_", i)]] %||% default_palette[i]
+    }, character(1))
+  })
+
   # Buttons----
-  # ...single batch----
-  observeEvent(input$batch_single_event, {
-    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
-    batchData$data <- get_batch_single_dataframe(loadedItems$mesh)
-  })
-
-  # ...double batch
-
-  # ...multi batch----
-  observeEvent(input$batch_multi_event, {
-    multi_opcr_patchsize <- input$multi_patch_size_select
-    mesh_files <- input$import_multi_surfaces$datapath
-    batchData$data <- get_batch_multi_dataframe(mesh_files, input$import_multi_surfaces$name, multi_opcr_patchsize)
-  })
-
   # ...download dataframe----
   # ......as .txt
   output$download_dataframe_txt <- downloadHandler(
@@ -855,47 +886,32 @@ server <- function(input, output, session) {
     }
   )
 
-  # COLORS!
-  # Update slider when a predefined palette is chosen
-  observeEvent(input$palette_choice, {
-    if (input$palette_choice != "Custom") {
-      palette <- predefined_palettes[[input$palette_choice]]
-      updateSliderInput(inputId = "color_count", value = length(palette))
-    }
+
+
+  # ...single batch----
+  observeEvent(input$batch_single_event, {
+    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    batchData$data <- get_batch_single_dataframe(loadedItems$mesh)
   })
 
-  # Dynamically generate the color picker inputs
-  output$color_pickers_ui <- renderUI({
-    count <- input$color_count
-
-    # Check if we should use colors from a template or default to black
-    current_palette <- if (input$palette_choice != "Custom") {
-      predefined_palettes[[input$palette_choice]]
-    } else {
-      grDevices::colorRampPalette(c("black","white"))(count)
-    }
-
-    # Create a list of colourInput widgets
-    lapply(1:count, function(i) {
-      # Use template color if available, otherwise default to black
-      init_color <- if(i <= length(current_palette)) current_palette[i] #else "#000000"
-
-      colourInput(inputId = paste0("col_", i),
-                  label = paste("Color", i),
-                  value = init_color)
-    })
+  # ...pairing----
+  observeEvent(input$start_pairing_event, {
+    loadedItems$mesh <- Rvcg::vcgImport(input$import_oes_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    loadedItems$meshB <- Rvcg::vcgImport(input$import_edj_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    batchData$data <- get_pairing_dataframe(loadedItems$mesh, loadedItems$meshB, input$pairing_method_select)
   })
 
-  # Reactive expression to store and retrieve the color vector
-  stored_colors <- reactive({
-    count <- input$color_count
-    default_palette <- grDevices::colorRampPalette(c("black","white"))(count)
-    # Collect values from the dynamically created inputs
-    vapply(1:count, function(i) {
-      input[[paste0("col_", i)]] %||% default_palette[i]
-    }, character(1))
-  })
+  # ...double batch----
 
+
+
+
+  # ...multi batch----
+  observeEvent(input$batch_multi_event, {
+    multi_opcr_patchsize <- input$multi_patch_size_select
+    mesh_files <- input$import_multi_surfaces$datapath
+    batchData$data <- get_batch_multi_dataframe(mesh_files, input$import_multi_surfaces$name, multi_opcr_patchsize)
+  })
 
   # Methods----
   # ...3D map----
@@ -982,7 +998,6 @@ server <- function(input, output, session) {
     selected_functions <- c(input$single_table_select_topology, input$single_table_select_relief, input$single_table_select_sharpness)
     fun_list <- list()
     for (fun in selected_functions) {
-
       if (fun == "3D area") fun_list <- rlist::list.append(fun_list, "3D area" = function(mesh) return(Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle))
       if (fun == "Elevation") fun_list <- rlist::list.append(fun_list, "Elevation" = function(mesh) return(doolkit::elev(mesh)))
       if (fun == "Inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(mesh) return(doolkit::inclin(mesh)))
@@ -1005,6 +1020,18 @@ server <- function(input, output, session) {
 
       return(result)
   }
+
+  # ...pairing----
+  get_pairing_dataframe <- function(mesh_a, mesh_b, method) {
+    if (method == 1) result <- doolkit::tridx(mesh_a, mesh_b, "nearest")
+    else if (method == 2) result <- doolkit::tridx(mesh_a, mesh_b, "normal")
+    else if (method == 3) result <- doolkit::tridx(mesh_a, mesh_b, "orthogonal")
+    return(result)
+  }
+
+  # ...paired batch----
+  #TODO
+
 
   # ...multi batch----
   get_batch_multi_dataframe <- function(mesh_files, filenames, multi_opcr_patchsize) {
@@ -1042,8 +1069,20 @@ server <- function(input, output, session) {
 
     #TODO manage empty lists
 
-    result <- doolkit::batch.multi(files = mesh_files, functions = fun_list, filenames = filenames)
-    return(result)
+    # Batch analysis with progress bar
+    withProgress(message = 'Batch analysis...', value = 0, {
+      # Set the option to bridge Shiny to your package
+      options(doolkit.progress_callback = function(amount, text) {
+        incProgress(amount, detail = text)
+      })
+
+      # Make sure it gets cleared even if the function errors out
+      on.exit(options(doolkit.progress_callback = NULL))
+
+      # Computation
+      result <- doolkit::batch.multi(files = mesh_files, functions = fun_list, filenames = filenames)
+      return(result)
+    })
   }
 
   session$onSessionEnded(function() {
