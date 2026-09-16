@@ -276,7 +276,8 @@ ui <- dashboardPage(
             "Curvature (mean)" = 8,
             "Curvature (Gaussian)" = 9,
             "Curvature (ARC)" = 10,
-            "Curvature (DNE)" = 11)),
+            "Curvature (DNE)" = 11,
+            "Distance" = 12)),
         # input: select graph type
         selectInput(
           inputId = "chart_style",
@@ -328,32 +329,25 @@ ui <- dashboardPage(
           )
         ),
 
-        # Pairing----
-        menuItem(
-          "Pairing",
-          icon = icon("arrows-left-right-to-line"),
-          # input: select pairing method
-          selectInput(
-            inputId = "pairing_method_select",
-            label = "Select mesh-to-mesh triangle pairing method",
-            selected = 2,
-            choices = list(
-              "Nearest triangle" = 1,
-              "Along normals" = 2,
-              "Along Z-axis" = 3
-            )
-          ),
-          # start button
-          actionButton("start_pairing_event", "Start face pairing")
-          ),
         # Face-scale analysis----
         menuItem(
           "Face-scale analysis",
           icon = icon("object-group"),
           menuItem(
             "Options...",
-            icon = icon("gears")
+            icon = icon("gears"),
             #TODO add options here
+            # input: select pairing method
+            selectInput(
+              inputId = "pairing_method_select",
+              label = "Select mesh-to-mesh triangle pairing method",
+              selected = 2,
+              choices = list(
+                "Nearest triangle" = 1,
+                "Along normals" = 2,
+                "Along Z-axis" = 3
+              )
+            )
           ),
           # ...variables----
           fluidRow(
@@ -393,54 +387,13 @@ ui <- dashboardPage(
               4,
               checkboxGroupInput(
                 inputId = "double_table_select_relief",
-                label = "Relief",
+                label = "Distance",
                 choices = list(
-                  "3D_area",
-                  "Inclination",
-                  "Slope",
-                  "RFI",
-                  "LRFI",
-                  "Gamma"),
-                selected = c("Slope"))
-            ),
-            column(
-              4,
-              checkboxGroupInput(
-                inputId = "double_table_select_sharpness",
-                label = "Sharpness",
-                choices = list(
-                  "Angularity",
-                  "_ratio",
-                  "DNE",
-                  "ARC",
-                  "_positive",
-                  "_negative"),
-                selected = "DNE")
-            )
-          ),
-
-          fluidRow(
-            column(
-              4,
-              checkboxGroupInput(
-                inputId = "double_table_select_distance",
-                label = "Shape",
-                choices = list(
-                  "Distance",
-                  "Elongation",
-                  "Lemniscate"),
-                selected = NULL)
-            ),
-            column(
-              4,
-              checkboxGroupInput(
-                inputId = "double_table_select_complexity",
-                label = "Complexity",
-                choices = list(
-                  "OPCR",
-                  "_4bins",
-                  "_2bins"),
-                selected = "OPCR")
+                  "Average thickness",
+                  "Relative thickness",
+                  "Absolute crown strength"
+                  ),
+                selected = c("Average thickness"))
             )
           ),
           # ...start button----
@@ -613,7 +566,7 @@ ui <- dashboardPage(
 # Server----
 server <- function(input, output, session) {
   # Reactive values----
-  batchData <- reactiveValues(data = data.frame())
+  batchData <- reactiveValues(data = data.frame(), pairing = NULL)
   loadedItems <- reactiveValues(mesh = NULL, meshB = NULL)
 
   # RGL
@@ -635,15 +588,25 @@ server <- function(input, output, session) {
 
   # Make ggplot chart----
   make_plot <- reactive({
-    # Wait for fileInput
-    req(input$import_surface)
-    # Import mesh
-    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath,
-                                        updateNormals = TRUE,
-                                        silent = TRUE)
-    # Compute topographic variable
-    y <- compute.polygonal(mesh = loadedItems$mesh,
-                           x = input$chart_var_select)
+    if (input$chart_var_select == 12) {
+      # Wait for fileInput
+      req(input$import_edj_surface, input$import_oes_surface)
+      # Import mesh
+      loadedItems$mesh <- Rvcg::vcgImport(input$import_oes_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      loadedItems$meshB <- Rvcg::vcgImport(input$import_edj_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      # Compute topographic variable
+      y <- compute.polygonal(mesh = loadedItems$mesh, x = input$map_var_select, meshB = loadedItems$meshB)
+    }
+    else {
+      # Wait for fileInput
+      req(input$import_surface)
+      # Import mesh
+      loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      # Compute topographic variable
+      y <- compute.polygonal(mesh = loadedItems$mesh, x = input$chart_var_select)
+
+    }
+
     # ...histogram
     if (input$chart_style == 1) {
       dkdata <- data.frame(y = y)
@@ -669,15 +632,29 @@ server <- function(input, output, session) {
     plot + ggplot2::ggtitle(label = plot_complete_title) +
       ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", size = 12))
   })
+
   # Make rgl map----
   make_map <- reactive({
-    #Wait for fileInput
-    req(input$import_surface)
-    #Build mesh
-    loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
-    #Build y
-    y <- compute.polygonal(mesh = loadedItems$mesh,
-                           x = input$map_var_select)
+    if (input$map_var_select == 12){
+      #Wait for fileInput
+      req(input$import_edj_surface, input$import_oes_surface)
+      #Build mesh
+      loadedItems$mesh <- Rvcg::vcgImport(input$import_oes_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      loadedItems$meshB <- Rvcg::vcgImport(input$import_edj_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      #Build y
+      y <- compute.polygonal(mesh = loadedItems$mesh, x = input$map_var_select, meshB = loadedItems$meshB)
+    }
+    else {
+      #Wait for fileInput
+      req(input$import_surface)
+      #Build mesh
+      loadedItems$mesh <- Rvcg::vcgImport(input$import_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      #Build y
+      y <- compute.polygonal(mesh = loadedItems$mesh, x = input$map_var_select)
+
+    }
+
+
     #Color
     col.range <- stored_colors()
     #Range
@@ -723,6 +700,7 @@ server <- function(input, output, session) {
     #...and display it
     rglwidget()
   })
+
 
   # Display dataframe----
   output$body_dataframe <- renderDT({
@@ -898,7 +876,8 @@ server <- function(input, output, session) {
   observeEvent(input$start_pairing_event, {
     loadedItems$mesh <- Rvcg::vcgImport(input$import_oes_surface$datapath, updateNormals = TRUE, silent = TRUE)
     loadedItems$meshB <- Rvcg::vcgImport(input$import_edj_surface$datapath, updateNormals = TRUE, silent = TRUE)
-    batchData$data <- get_pairing_dataframe(loadedItems$mesh, loadedItems$meshB, input$pairing_method_select)
+    batchData$pairing <- get_pairing_dataframe(loadedItems$mesh, loadedItems$meshB, input$pairing_method_select)
+    batchData$data <- batchData$pairing
   })
 
   # ...double batch----
@@ -916,7 +895,7 @@ server <- function(input, output, session) {
   # Methods----
   # ...3D map----
   # get per triangle values
-  compute.polygonal <- function(mesh, x) {
+  compute.polygonal <- function(mesh, x, meshB) {
     if (x == 1) result <- Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle
     if (x == 2) result <- doolkit::elev(mesh, origin = FALSE)
     if (x == 3) result <- doolkit::inclin(mesh)
@@ -928,8 +907,10 @@ server <- function(input, output, session) {
     if (x == 9) result <- Rvcg::vcgCurve(mesh)$gaussitmax
     if (x == 10) result <- doolkit::arc(mesh, range = c(-20, 20))
     if (x == 11) result <- doolkit::dne(mesh)
+    if (x == 12) result <- doolkit::oedist(mesh, meshB)
     return(result)
   }
+
   # get variable name on legend
   dta.legend <- function(x) {
     if (x == 1) result <- "3D Area"
@@ -943,6 +924,7 @@ server <- function(input, output, session) {
     if (x == 9) result <- "Gauss curvature"
     if (x == 10) result <- "Area-Relative Curvature"
     if (x == 11) result <- "Dirichlet Normal Energy"
+    if (x == 12) result <- "Geometric Distance"
     return(result)
   }
   # get min range according to selected variable
@@ -958,6 +940,7 @@ server <- function(input, output, session) {
     if (x == 9) result <- NULL
     if (x == 10) result <- -20
     if (x == 11) result <- NULL
+    if (x == 12) result <- NULL
     return(result)
   }
   # get max range according to selected variable
@@ -973,6 +956,7 @@ server <- function(input, output, session) {
     if (x == 9) result <- NULL
     if (x == 10) result <- 20
     if (x == 11) result <- NULL
+    if (x == 12) result <- NULL
     return(result)
   }
   # get selected legend type
