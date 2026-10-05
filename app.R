@@ -124,11 +124,11 @@ ui <- dashboardPage(
             value = median(seq(1, 100))
           )
         ),
-        # Tilt----
-        menuItem(
-          "Tilt",
-          icon = icon("lines-leaning")
-        ),
+        # # Tilt----
+        # menuItem(
+        #   "Tilt",
+        #   icon = icon("lines-leaning")
+        # ),
         # Single batch analysis----
         menuItem(
           "Batch analysis",
@@ -316,14 +316,14 @@ ui <- dashboardPage(
           "File",
           icon = icon("file-import"),
           fileInput(
-            inputId = "import_oes_surface",
-            label = "Select outer surface file",
+            inputId = "import_origin_surface",
+            label = "Select origin surface file",
             multiple = FALSE,
             accept = c("text/plain", ".stl", ".ply")
           ),
           fileInput(
-            inputId = "import_edj_surface",
-            label = "Select inner surface file",
+            inputId = "import_paired_surface",
+            label = "Select paired surface file",
             multiple = FALSE,
             accept = c("text/plain", ".stl", ".ply")
           )
@@ -341,7 +341,7 @@ ui <- dashboardPage(
             selectInput(
               inputId = "pairing_method_select",
               label = "Select mesh-to-mesh triangle pairing method",
-              selected = 2,
+              selected = 1,
               choices = list(
                 "Nearest triangle" = 1,
                 "Along normals" = 2,
@@ -352,25 +352,26 @@ ui <- dashboardPage(
           # ...variables----
           fluidRow(
               checkboxGroupInput(
-                inputId = "double_table_select",
+                inputId = "double_face_table_select",
                 label = "Select variables",
                 choices = list(
-                  "Paired triangle indices",
                   "Distance",
-                  "Elevation delta",
-                  "Inclination delta",
-                  "Slope delta",
-                  "Angularity delta (in degree)",
-                  "Angularity delta (as ratio)",
-                  "Curvature delta (mean)",
-                  "Curvature delta (Gaussian)",
-                  "Curvature delta (ARC)",
-                  "Curvature delta (DNE)"),
+                  "Pairwise elevation",
+                  "Pairwise inclination",
+                  "Pairwise slope",
+                  "Pairwise angularity (in degree)",
+                  "Pairwise angularity (as ratio)",
+                  "Pairwise curvature (mean)",
+                  "Pairwise curvature (Gaussian)",
+                  "Pairwise curvature (ARC)",
+                  "Pairwise curvature (DNE)"),
                 selected = c("Paired triangle indices", "Distance"))
           ),
           # ...start button----
           actionButton("face_batch_double_event", "Start batch analysis")
         ),
+
+
 
         # Mesh-scale analysis----
         menuItem(
@@ -386,7 +387,7 @@ ui <- dashboardPage(
             column(
               4,
               checkboxGroupInput(
-                inputId = "double_table_select_relief",
+                inputId = "double_mesh_table_select",
                 label = "Distance",
                 choices = list(
                   "Average thickness",
@@ -422,6 +423,7 @@ ui <- dashboardPage(
           "Batch analysis",
           icon = icon("object-group"),
           # ...options----
+          #TODO add options here
           menuItem(
             "Options...",
             icon = icon("gears"),
@@ -432,8 +434,11 @@ ui <- dashboardPage(
               min = 3,
               max = 100,
               value = 3
-            )
-            #TODO add options here
+            ),
+            checkboxInput(
+              inputId = "multi_occlusal_tilt",
+              label = "Occlusal tilt (only affects variables impacted by occlusal orientation e.g. slope)",
+              value = FALSE)
           ),
           # ...variables----
           fluidRow(
@@ -569,8 +574,9 @@ server <- function(input, output, session) {
   batchData <- reactiveValues(data = data.frame(), pairing = NULL)
   loadedItems <- reactiveValues(mesh = NULL, meshB = NULL)
 
-  # RGL
+  # Options----
   options(rgl.useNULL = TRUE)
+  on.exit(options(rgl.inShiny = FALSE))
 
   # Change max upload size
   # ...initialize at 5MB
@@ -590,10 +596,10 @@ server <- function(input, output, session) {
   make_plot <- reactive({
     if (input$chart_var_select == 12) {
       # Wait for fileInput
-      req(input$import_edj_surface, input$import_oes_surface)
+      req(input$import_paired_surface, input$import_origin_surface)
       # Import mesh
-      loadedItems$mesh <- Rvcg::vcgImport(input$import_oes_surface$datapath, updateNormals = TRUE, silent = TRUE)
-      loadedItems$meshB <- Rvcg::vcgImport(input$import_edj_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      loadedItems$mesh <- Rvcg::vcgImport(input$import_origin_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      loadedItems$meshB <- Rvcg::vcgImport(input$import_paired_surface$datapath, updateNormals = TRUE, silent = TRUE)
       # Compute topographic variable
       y <- compute.polygonal(mesh = loadedItems$mesh, x = input$map_var_select, meshB = loadedItems$meshB)
     }
@@ -637,10 +643,10 @@ server <- function(input, output, session) {
   make_map <- reactive({
     if (input$map_var_select == 12){
       #Wait for fileInput
-      req(input$import_edj_surface, input$import_oes_surface)
+      req(input$import_paired_surface, input$import_origin_surface)
       #Build mesh
-      loadedItems$mesh <- Rvcg::vcgImport(input$import_oes_surface$datapath, updateNormals = TRUE, silent = TRUE)
-      loadedItems$meshB <- Rvcg::vcgImport(input$import_edj_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      loadedItems$mesh <- Rvcg::vcgImport(input$import_origin_surface$datapath, updateNormals = TRUE, silent = TRUE)
+      loadedItems$meshB <- Rvcg::vcgImport(input$import_paired_surface$datapath, updateNormals = TRUE, silent = TRUE)
       #Build y
       y <- compute.polygonal(mesh = loadedItems$mesh, x = input$map_var_select, meshB = loadedItems$meshB)
     }
@@ -728,8 +734,6 @@ server <- function(input, output, session) {
 
 
   # Display rgl map----
-  #save <- options(rgl.inShiny = TRUE)
-  #on.exit(options(save))
   output$dkmap <- renderRglwidget({
     make_map()
   })
@@ -872,18 +876,19 @@ server <- function(input, output, session) {
     batchData$data <- get_batch_single_dataframe(loadedItems$mesh)
   })
 
-  # ...pairing----
-  observeEvent(input$start_pairing_event, {
-    loadedItems$mesh <- Rvcg::vcgImport(input$import_oes_surface$datapath, updateNormals = TRUE, silent = TRUE)
-    loadedItems$meshB <- Rvcg::vcgImport(input$import_edj_surface$datapath, updateNormals = TRUE, silent = TRUE)
-    batchData$pairing <- get_pairing_dataframe(loadedItems$mesh, loadedItems$meshB, input$pairing_method_select)
-    batchData$data <- batchData$pairing
+  # ...double face batch----
+  observeEvent(input$face_batch_double_event, {
+    loadedItems$mesh <- Rvcg::vcgImport(input$import_origin_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    loadedItems$meshB <- Rvcg::vcgImport(input$import_paired_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    batchData$data <- get_batch_double_face_dataframe(loadedItems$mesh, loadedItems$meshB, input$pairing_method_select)
   })
 
-  # ...double batch----
-
-
-
+  # ...double mesh batch----
+  observeEvent(input$mesh_batch_double_event, {
+    loadedItems$mesh <- Rvcg::vcgImport(input$import_origin_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    loadedItems$meshB <- Rvcg::vcgImport(input$import_paired_surface$datapath, updateNormals = TRUE, silent = TRUE)
+    batchData$data <- get_batch_double_mesh_dataframe(loadedItems$mesh, loadedItems$meshB, input$input$pairing_method_select)
+  })
 
   # ...multi batch----
   observeEvent(input$batch_multi_event, {
@@ -893,7 +898,7 @@ server <- function(input, output, session) {
   })
 
   # Methods----
-  # ...3D map----
+  # ...3D map and chart elements----
   # get per triangle values
   compute.polygonal <- function(mesh, x, meshB) {
     if (x == 1) result <- Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle
@@ -978,31 +983,38 @@ server <- function(input, output, session) {
 
   # ...single batch----
   get_batch_single_dataframe <- function(mesh_file) {
-    # Prepare function list
     selected_functions <- c(input$single_table_select_topology, input$single_table_select_relief, input$single_table_select_sharpness)
+    # Manage empty function lists
+    if (length(selected_functions) < 1) {
+      warning("Trying to start batch analysis with no method selected.")
+      return()
+    }
+    # Prepare function list
     fun_list <- list()
     for (fun in selected_functions) {
-      if (fun == "3D area") fun_list <- rlist::list.append(fun_list, "3D area" = function(mesh) return(Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle))
-      if (fun == "Elevation") fun_list <- rlist::list.append(fun_list, "Elevation" = function(mesh) return(doolkit::elev(mesh)))
-      if (fun == "Inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(mesh) return(doolkit::inclin(mesh)))
-      if (fun == "Orientation") fun_list <- rlist::list.append(fun_list, "Orientation" = function(mesh) return(doolkit::orient(mesh)))
-      if (fun == "Slope") fun_list <- rlist::list.append(fun_list, "Slope" = function(mesh) return(doolkit::slope(mesh)))
-      if (fun == "Angularity (in degree)") fun_list <- rlist::list.append(fun_list, "Angularity_in_degree)" = function(mesh) return(doolkit::angularity(mesh, ratio = FALSE)))
-      if (fun == "Angularity (as ratio)") fun_list <- rlist::list.append(fun_list, "Angularity_as_ratio)" = function(mesh) return(doolkit::angularity(mesh, ratio = TRUE)))
-      if (fun == "Curvature (mean)") fun_list <- rlist::list.append(fun_list, "Mean_curvature" = function(mesh) return(Rvcg::vcgCurve(mesh)$meanitmax))
-      if (fun == "Curvature (Gaussian)") fun_list <- rlist::list.append(fun_list, "Gaussian_curvature" = function(mesh) return(Rvcg::vcgCurve(mesh)$gaussitmax))
-      if (fun == "Curvature (ARC)") fun_list <- rlist::list.append(fun_list, "ARC" = function(mesh) return(doolkit::arc(mesh, range = c(-20, 20))))
-      if (fun == "Curvature (DNE)") fun_list <- rlist::list.append(fun_list, "DNE" = function(mesh) return(doolkit::dne(mesh)))
+      if (fun == "3D area") fun_list <- rlist::list.append(fun_list, "3D area" = function(mesh) return(round(Rvcg::vcgArea(mesh, perface = TRUE)$pertriangle, 4)))
+      if (fun == "Elevation") fun_list <- rlist::list.append(fun_list, "Elevation" = function(mesh) return(round(doolkit::elev(mesh), 2)))
+      if (fun == "Inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(mesh) return(round(doolkit::inclin(mesh), 2)))
+      if (fun == "Orientation") fun_list <- rlist::list.append(fun_list, "Orientation" = function(mesh) return(round(doolkit::orient(mesh), 2)))
+      if (fun == "Slope") fun_list <- rlist::list.append(fun_list, "Slope" = function(mesh) return(round(doolkit::slope(mesh), 2)))
+      if (fun == "Angularity (in degree)") fun_list <- rlist::list.append(fun_list, "Angularity_in_degree)" = function(mesh) return(round(doolkit::angularity(mesh, ratio = FALSE), 2)))
+      if (fun == "Angularity (as ratio)") fun_list <- rlist::list.append(fun_list, "Angularity_as_ratio)" = function(mesh) return(round(doolkit::angularity(mesh, ratio = TRUE), 2)))
+      if (fun == "Curvature (mean)") fun_list <- rlist::list.append(fun_list, "Mean_curvature" = function(mesh) return(round(Rvcg::vcgCurve(mesh)$meanitmax, 2)))
+      if (fun == "Curvature (Gaussian)") fun_list <- rlist::list.append(fun_list, "Gaussian_curvature" = function(mesh) return(round(Rvcg::vcgCurve(mesh)$gaussitmax, 2)))
+      if (fun == "Curvature (ARC)") fun_list <- rlist::list.append(fun_list, "ARC" = function(mesh) return(round(doolkit::arc(mesh, range = c(-20, 20)), 2)))
+      if (fun == "Curvature (DNE)") fun_list <- rlist::list.append(fun_list, "DNE" = function(mesh) return(round(doolkit::dne(mesh), 2)))
     }
 
-      #TODO manage empty lists
-
+    # Batch analysis with progress bar
+    withProgress(message = 'Batch analysis...', value = 0, {
+      options(doolkit.progress_callback = function(amount, text) {
+        incProgress(amount, detail = text)
+      })
+      # Remove progress bar when error
+      on.exit(options(doolkit.progress_callback = NULL))
       result <- doolkit::batch.single(mesh_file, fun_list)
-
-      print(c("functions = ", selected_functions))
-      print(c("colnames = ", colnames(result)))
-
       return(result)
+    })
   }
 
   # ...pairing----
@@ -1013,62 +1025,202 @@ server <- function(input, output, session) {
     return(result)
   }
 
-  # ...paired batch----
-  #TODO
-
-
-  # ...multi batch----
-  get_batch_multi_dataframe <- function(mesh_files, filenames, multi_opcr_patchsize) {
+  # ...paired face batch----
+  get_batch_double_face_dataframe <- function(mesh_file_A, mesh_file_B, method) {
+    selected_functions <- input$double_face_table_select
+    # Manage empty function lists
+    if (length(selected_functions) < 1) {
+      warning("Trying to start batch analysis with no method selected.")
+      return()
+    }
     # Prepare function list
-    selected_functions <- c(input$multi_table_select_relief, input$multi_table_select_sharpness, input$multi_table_select_shape, input$multi_table_select_complexity)
     fun_list <- list()
     for (fun in selected_functions) {
-      if (fun == "3D_area") fun_list <- rlist::list.append(fun_list, "3d_area" = function(mesh) return(Rvcg::vcgArea(mesh)))
-      if (fun == "Inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(mesh) return(mean(doolkit::inclin(mesh))))
-      if (fun == "Slope") fun_list <- rlist::list.append(fun_list, "Slope" = function(mesh) return(mean(doolkit::slope(mesh))))
-
-      if (fun == "RFI") fun_list <- rlist::list.append(fun_list, "RFI" = function(mesh) return(doolkit::rfi(mesh, method = "Ungar")))
-      if (fun == "LRFI") fun_list <- rlist::list.append(fun_list, "LRFI" = function(mesh) return(doolkit::rfi(mesh, method = "Boyer")))
-      if (fun == "Gamma") fun_list <- rlist::list.append(fun_list, "Gamma" = function(mesh) return(doolkit::rfi(mesh, method = "Guy")))
-
-      if (fun == "Angularity") fun_list <- rlist::list.append(fun_list, "Angularity" = function(mesh) return(mean(doolkit::angularity(mesh))))
-      if (fun == "_ratio") fun_list <- rlist::list.append(fun_list, "Angularity_ratio" = function(mesh) return(mean(doolkit::angularity(mesh, ratio = TRUE))))
-      if (fun == "DNE") fun_list <- rlist::list.append(fun_list, "DNE" = function(mesh) return(doolkit::dne(mesh, total = TRUE)))
-      if (fun == "ARC") fun_list <- rlist::list.append(fun_list, "ARC" = function(mesh) return(mean(doolkit::arc(mesh))))
-      if (fun == "_positive") fun_list <- rlist::list.append(fun_list, "Arc_positive" = function(mesh) {
-        curvature <- doolkit::arc(mesh)
-        return(mean(curvature[curvature >= 0]))
-      })
-      if (fun == "_negative") fun_list <- rlist::list.append(fun_list, "Arc_negative" = function(mesh) {
-        curvature <- doolkit::arc(mesh)
-        return(mean(curvature[curvature < 0]))
-      })
-      if (fun == "Form_factor") fun_list <- rlist::list.append(fun_list, "Form_factor" = function(mesh) return(doolkit::shape.index(mesh)$FormFactor))
-      if (fun == "Elongation") fun_list <- rlist::list.append(fun_list, "Elongation" = function(mesh) return(doolkit::shape.index(mesh)$Elongation))
-      if (fun == "Lemniscate") fun_list <- rlist::list.append(fun_list, "Lemniscate_ratio" = function(mesh) return(doolkit::shape.index(mesh)$K))
-      if (fun == "OPCR") fun_list <- rlist::list.append(fun_list, "OPCR" = function(mesh) return(doolkit::opcr(mesh, bins = 8, min.size = multi_opcr_patchsize)$opcr))
-      if (fun == "_4bins") fun_list <- rlist::list.append(fun_list, "OPCR_4bins" = function(mesh) return(doolkit::opcr(mesh, bins = 4, min.size = multi_opcr_patchsize)$opcr))
-      if (fun == "_2bins") fun_list <- rlist::list.append(fun_list, "OPCR_2bins" = function(mesh) return(doolkit::opcr(mesh, bins = 2, min.size = multi_opcr_patchsize)$opcr))
+      if (fun == "Distance") fun_list <- rlist::list.append(fun_list, "Distance" = function(meshA, meshB) return(round(doolkit::tridist(meshA, meshB), 2)))
+      if (fun == "Pairwise elevation") fun_list <- rlist::list.append(fun_list, "Elevation" = function(meshA, meshB) return(cbind(round(doolkit::elev(meshA), 2), round(doolkit::elev(meshB), 2))))
+      if (fun == "Pairwise inclination") fun_list <- rlist::list.append(fun_list, "Inclination" = function(meshA, meshB) return(cbind(round(doolkit::inclin(meshA), 2), round(doolkit::inclin(meshB), 2))))
+      if (fun == "Pairwise slope") fun_list <- rlist::list.append(fun_list, "Slope" = function(meshA, meshB) return(cbind(round(doolkit::slope(meshA), 2), round(doolkit::slope(meshB), 2))))
+      if (fun == "Pairwise angularity (in degree)") fun_list <- rlist::list.append(fun_list, "Angularity_in_degree" = function(meshA, meshB) return(cbind(round(doolkit::angularity(meshA, ratio = F), 2), round(doolkit::angularity(meshB, ratio = F), 2))))
+      if (fun == "Pairwise angularity (as ratio)") fun_list <- rlist::list.append(fun_list, "Angularity_as_ratio" = function(meshA, meshB) return(cbind(round(doolkit::angularity(meshA, ratio = T), 2), round(doolkit::angularity(meshB, ratio = T), 2))))
+      if (fun == "Pairwise curvature (mean)") fun_list <- rlist::list.append(fun_list, "Mean_curvature" = function(meshA, meshB) return(cbind(round(Rvcg::vcgCurve(meshA)$meanitmax, 2), round(Rvcg::vcgCurve(meshB)$meanitmax, 2))))
+      if (fun == "Pairwise curvature (Gaussian)") fun_list <- rlist::list.append(fun_list, "Gaussian_curvature" = function(meshA) return(cbind(round(Rvcg::vcgCurve(meshA)$gaussitmax, 2), round(Rvcg::vcgCurve(meshB)$gaussitmax, 2))))
+      if (fun == "Pairwise curvature (ARC)") fun_list <- rlist::list.append(fun_list, "ARC" = function(meshA, meshB) return(cbind(round(doolkit::arc(meshA, range = c(-20, 20)), 2), round(doolkit::arc(meshB, range = c(-20, 20)), 2))))
+      if (fun == "Pairwise curvature (DNE)") fun_list <- rlist::list.append(fun_list, "DNE" = function(meshA, meshB) return(cbind(round(doolkit::dne(meshA), 2), round(doolkit::dne(meshB), 2))))
     }
 
-    #TODO manage empty lists
+    # Pairing method
+    if (method == 1) method <- "nearest"
+    else if (method == 2) method <- "normal"
+    else if (method == 3) method <- "orthogonal"
 
     # Batch analysis with progress bar
     withProgress(message = 'Batch analysis...', value = 0, {
-      # Set the option to bridge Shiny to your package
       options(doolkit.progress_callback = function(amount, text) {
         incProgress(amount, detail = text)
       })
-
-      # Make sure it gets cleared even if the function errors out
+      # Remove progress bar when error
       on.exit(options(doolkit.progress_callback = NULL))
+      result <- doolkit::batch.paired(mesh_file_A, mesh_file_B, functions = fun_list, method = method)
+      # Rename the columns
+      fun_names <- colnames(result)
+      if ("Distance" %in% fun_names){
+        fun_names <- c(fun_names[1:3], rep(fun_names[4:(ceiling(length(fun_names) / 2) + 1)], each = 2))
+      }
+      else
+      {
+        fun_names <- c(fun_names[1:2], rep(fun_names[3:((length(fun_names) / 2) + 1)], each = 2))
+      }
 
-      # Computation
+      previous <- ""
+      for (i in 1:length(fun_names)){
+        if (fun_names[i] == previous){
+          fun_names[i] <- paste(fun_names[i], "_paired")
+        }
+        previous = fun_names[i]
+      }
+
+      colnames(result) <- fun_names
+      return(result)
+    })
+  }
+
+
+  # ...paired mesh batch----
+  get_batch_double_mesh_dataframe <- function(mesh_file_A, mesh_file_B, method) {
+    selected_functions <- input$double_mesh_table_select
+    # Manage empty function lists
+    if (length(selected_functions) < 1) {
+      warning("Trying to start batch analysis with no method selected.")
+      return()
+    }
+    # Prepare function list
+    fun_list <- list()
+    for (fun in selected_functions) {
+
+    }
+
+    # Batch analysis with progress bar
+    withProgress(message = 'Batch analysis...', value = 0, {
+      options(doolkit.progress_callback = function(amount, text) {
+        incProgress(amount, detail = text)
+      })
+      # Remove progress bar when error
+      on.exit(options(doolkit.progress_callback = NULL))
       result <- doolkit::batch.multi(files = mesh_files, functions = fun_list, filenames = filenames)
       return(result)
     })
   }
 
+
+
+  # ...multi batch----
+  get_batch_multi_dataframe <- function(mesh_files, filenames, multi_opcr_patchsize) {
+    selected_functions <- c(input$multi_table_select_relief, input$multi_table_select_sharpness, input$multi_table_select_shape, input$multi_table_select_complexity)
+    # Manage empty function lists
+    if (length(selected_functions) < 1) {
+      warning("Trying to start batch analysis with no method selected.")
+      return()
+    }
+    # Prepare function list
+    fun_list <- list()
+    for (fun in selected_functions) {
+      if (fun == "3D_area") fun_list <- rlist::list.append(fun_list, "3d_area" = function(mesh) return(round(Rvcg::vcgArea(mesh), 4)))
+      if (fun == "Inclination") {
+        fun_to_tilt_inc = function(mesh) return(round(mean(doolkit::inclin(mesh)), 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "Inclination_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_inc)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "Inclination" = fun_to_tilt_inc)
+      }
+
+      if (fun == "Slope") {
+        fun_to_tilt_slo = function(mesh) return(round(mean(doolkit::slope(mesh)), 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "Slope_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_slo)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "Slope" = fun_to_tilt_slo)
+      }
+
+      if (fun == "RFI") {
+        fun_to_tilt_rfi = function(mesh) return(round(doolkit::rfi(mesh, method = "Ungar"), 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "RFI_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_rfi)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "RFI" = fun_to_tilt_rfi)
+      }
+      if (fun == "LRFI") {
+        fun_to_tilt_lrfi = function(mesh) return(round(doolkit::rfi(mesh, method = "Boyer"), 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "LRFI_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_lrfi)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "LRFI" = fun_to_tilt_lrfi)
+      }
+      if (fun == "Gamma") {
+        fun_to_tilt_gamma = function(mesh) return(round(doolkit::rfi(mesh, method = "Guy"), 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "Gamma_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_gamma)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "Gamma" = fun_to_tilt_gamma)
+      }
+
+      if (fun == "Angularity") {
+        fun_to_tilt_ang = function(mesh) return(round(mean(doolkit::angularity(mesh), 2)))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "Angularity_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_ang)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "Angularity" = fun_to_tilt_ang)
+      }
+      if (fun == "_ratio") {
+        fun_to_tilt_ang_rat = function(mesh) return(round(mean(doolkit::angularity(mesh, ratio = TRUE)), 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "Angularity_ratio_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_ang_rat)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "Angularity_ratio" = fun_to_tilt_ang_rat)
+      }
+
+      if (fun == "DNE") fun_list <- rlist::list.append(fun_list, "DNE" = function(mesh) return(round(doolkit::dne(mesh, total = TRUE), 2)))
+      if (fun == "ARC") fun_list <- rlist::list.append(fun_list, "ARC" = function(mesh) return(round(mean(doolkit::arc(mesh)),2)))
+      if (fun == "_positive") fun_list <- rlist::list.append(fun_list, "Arc_positive" = function(mesh) {
+        curvature <- doolkit::arc(mesh)
+        return(round(mean(curvature[curvature >= 0]), 2))
+      })
+      if (fun == "_negative") fun_list <- rlist::list.append(fun_list, "Arc_negative" = function(mesh) {
+        curvature <- doolkit::arc(mesh)
+        return(round(mean(curvature[curvature < 0]), 2))
+      })
+
+      if (fun == "Form_factor") {
+        fun_to_tilt_for_fac = function(mesh) return(round(doolkit::shape.index(mesh)$FormFactor, 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "Form_factor_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_for_fac)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "Form_factor_tilted" = fun_to_tilt_for_fac)
+      }
+      if (fun == "Elongation") {
+        fun_to_tilt_elo = function(mesh) return(round(doolkit::shape.index(mesh)$Elongation, 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "Elongation_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_elo)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "Elongation" = fun_to_tilt_elo)
+      }
+      if (fun == "Lemniscate") {
+        fun_to_tilt_lem = function(mesh) return(round(doolkit::shape.index(mesh)$K, 2))
+        if (input$multi_occlusal_tilt_lem) fun_list <- rlist::list.append(fun_list, "Lemniscate_ratio_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "Lemniscate_ratio" = fun_to_tilt_lem)
+      }
+      if (fun == "OPCR") {
+        fun_to_tilt_opc = function(mesh) return(round(doolkit::opcr(mesh, bins = 8, min.size = multi_opcr_patchsize)$opcr, 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "OPCR_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_opc)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "OPCR" = fun_to_tilt_opc)
+      }
+      if (fun == "_4bins") {
+        fun_to_tilt_op4 = function(mesh) return(round(doolkit::opcr(mesh, bins = 4, min.size = multi_opcr_patchsize)$opcr, 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "OPCR_4bins_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_op4)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "OPCR_4bins" = fun_to_tilt_op4)
+      }
+      if (fun == "_2bins") {
+        fun_to_tilt_op2 = function(mesh) return(round(doolkit::opcr(mesh, bins = 2, min.size = multi_opcr_patchsize)$opcr, 2))
+        if (input$multi_occlusal_tilt) fun_list <- rlist::list.append(fun_list, "OPCR_2bins_tilted" = function(mesh) return(round(doolkit::tilt(mesh, fun_to_tilt_op2)$average, 2)))
+        else fun_list <- rlist::list.append(fun_list, "OPCR_2bins" = fun_to_tilt_op2)
+      }
+    }
+
+    # Batch analysis with progress bar
+    withProgress(message = 'Batch analysis...', value = 0, {
+      options(doolkit.progress_callback = function(amount, text) {
+        incProgress(amount, detail = text)
+      })
+      # Remove progress bar when error
+      on.exit(options(doolkit.progress_callback = NULL))
+      result <- doolkit::batch.multi(files = mesh_files, functions = fun_list, filenames = filenames)
+      return(result)
+    })
+  }
+
+
+  # Session end----
   session$onSessionEnded(function() {
     options(shiny.maxRequestSize = 5 * 1024^2)
     options(rgl.useNULL = FALSE)
